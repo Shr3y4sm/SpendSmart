@@ -1,0 +1,50 @@
+[
+  {
+    "id": 1,
+    "item": "Starbucks",
+    "category": "Food & Dining",
+    "amount": 200.0,
+    "date": "2025-01-15",
+    "created_at": "2025-10-24T13:13:54.053329"
+  },
+  {
+    "id": 2,
+    "item": "Train ticket",
+    "category": "Transportation",
+    "amount": 625.0,
+    "date": "2025-02-28",
+    "created_at": "2025-10-24T13:14:27.431925"
+  },
+  {
+    "id": 3,
+    "item": "Netflix",
+    "category": "Entertainment",
+    "amount": 199.32,
+    "date": "2025-10-24",
+    "created_at": "2025-10-24T13:15:02.952492"
+  },
+  {
+    "id": 4,
+    "item": "Netflix",
+    "category": "Entertainment",
+    "amount": 2000.0,
+    "date": "2025-10-24",
+    "created_at": "2025-10-24T13:41:37.407168"
+  },
+  {
+    "id": 5,
+    "item": "Chicken Triple Fried Rice 1 X260 X260",
+    "category": "Food & Dining",
+    "amount": 260.0,
+    "date": "2025-10-24",
+    "created_at": "2025-10-24T13:44:18.369065"
+  },
+  {
+    "id": 6,
+    "item": "Starbucks",
+    "category": "Shopping",
+    "amount": 20000.0,
+    "date": "2025-10-24",
+    "created_at": "2025-10-24T13:52:50.901750"
+  }
+]
