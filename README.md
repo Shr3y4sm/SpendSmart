@@ -1,140 +1,277 @@
-# 💰 SpendSmart - Intelligent Expense Tracker# 💰 SpendSmart - Intelligent Expense Tracker
+# 💰 SpendSmart - AI-Powered Expense Tracker# 💰 SpendSmart - Intelligent Expense Tracker# 💰 SpendSmart - Intelligent Expense Tracker
 
 
 
-A modern, AI-powered expense tracking web application with comprehensive budget management, automated email alerts, and financial insights. Built with Flask, SQLAlchemy, and Google Gemini AI.A modern, AI-powered expense tracking web application with comprehensive budget management, automated email alerts, and financial insights. Built with Flask, SQLAlchemy, and Google Gemini AI.
+A modern web application for intelligent expense tracking with AI categorization, budget management, automated email alerts, and financial insights.
 
 
 
-![Python](https://img.shields.io/badge/Python-3.8+-blue.svg)![Python](https://img.shields.io/badge/Python-3.8+-blue.svg)
+![Python](https://img.shields.io/badge/Python-3.8+-blue.svg) ![Flask](https://img.shields.io/badge/Flask-3.0.0-green.svg) ![License](https://img.shields.io/badge/License-MIT-yellow.svg)A modern, AI-powered expense tracking web application with comprehensive budget management, automated email alerts, and financial insights. Built with Flask, SQLAlchemy, and Google Gemini AI.A modern, AI-powered expense tracking web application with comprehensive budget management, automated email alerts, and financial insights. Built with Flask, SQLAlchemy, and Google Gemini AI.
 
-![Flask](https://img.shields.io/badge/Flask-3.0.0-green.svg)![Flask](https://img.shields.io/badge/Flask-3.0.0-green.svg)
 
-![Bootstrap](https://img.shields.io/badge/Bootstrap-5.3.0-purple.svg)![Bootstrap](https://img.shields.io/badge/Bootstrap-5.3.0-purple.svg)
-
-![AI](https://img.shields.io/badge/AI-Gemini-orange.svg)![AI](https://img.shields.io/badge/AI-Gemini-orange.svg)
-
-![License](https://img.shields.io/badge/License-MIT-yellow.svg)![License](https://img.shields.io/badge/License-MIT-yellow.svg)
-
-
-
----## ✨ Key Features
-
-
-
-## ✨ Features### 🔐 User Authentication
-
-- Secure user registration and login
-
-### 🔐 User Authentication- Password hashing with Werkzeug
-
-- Secure registration and login system- Session-based authentication (Flask-Login)
-
-- Password hashing with Werkzeug- User profile management
-
-- Session-based authentication (Flask-Login)- User-specific data isolation
-
-- User profile management
-
-- User-specific data isolation### 💰 Budget Management
-
-- Monthly budget setting with customizable thresholds
-
-### 💰 Budget Management- Real-time spending tracking
-
-- Monthly budget setting with customizable thresholds (50-100%)- Visual progress bars with status indicators (Safe/Warning/Exceeded)
-
-- Real-time spending tracking- Budget status dashboard
-
-- Visual progress bars with color-coded status (Safe/Warning/Exceeded)
-
-- Budget status dashboard### 📧 Automated Email Alerts
-
-- Remaining budget calculations- Warning emails when reaching budget threshold (e.g., 80%)
-
-- Critical alerts when exceeding 100% of budget
-
-### 📧 Automated Email Alerts- Beautiful HTML email templates
-
-- **Warning emails** when reaching budget threshold (e.g., 80%)- Smart alert system (one email per threshold per month)
-
-- **Critical alerts** when exceeding 100% of budget- Works with Gmail, Outlook, Yahoo, and custom SMTP
-
-- Beautiful HTML email templates with spending summaries
-
-- Smart alert system (one email per threshold per month)### 🤖 AI-Powered Features
-
-- Works with Gmail, Outlook, Yahoo, and custom SMTP servers- **Smart Categorization**: Automatic expense categorization using Google Gemini AI
-
-- **Financial Insights**: AI-generated spending analysis and recommendations
-
-### 🤖 AI-Powered Features- **Pattern Recognition**: Identify spending trends and behavioral patterns
-
-- **Smart Categorization**: Automatic expense categorization using Google Gemini AI- **Personalized Tips**: Actionable advice to improve financial health
-
-- **Financial Insights**: AI-generated spending analysis and personalized recommendations
-
-- **Pattern Recognition**: Identify spending trends and behavioral patterns### 📷 Receipt Scanner
-
-- **Confidence Scores**: Get categorization suggestions with confidence levels- OCR text extraction from receipt images (Tesseract.js)
-
-- Auto-fill expense form with extracted data
-
-### 📷 Receipt Scanner- Amount and date detection
-
-- OCR text extraction from receipt images (Tesseract.js)- Merchant identification
-
-- Auto-fill expense form with extracted data
-
-- Automatic amount and date detection### 📊 Data Visualization
-
-- Merchant/item identification- Interactive pie charts for spending distribution
-
-- Supports JPG, PNG image formats- Monthly trend line charts
-
-- Real-time updates
-
-### 📊 Data Visualization- Color-coded categories
-
-- Interactive pie charts for spending distribution- Responsive design
-
-- Monthly trend line charts
-
-- Real-time chart updates### � Modern UI/UX
-
-- Color-coded categories- Clean, professional dashboard design
-
-- Hover tooltips with detailed information- Statistics cards (Today/Week/Month/Total)
-
-- Responsive design for all devices- Responsive layout for all devices
-
-- Smooth animations and transitions
-
-### 🎨 Modern UI/UX- Touch-friendly mobile interface
-
-- Clean, professional dashboard design
-
-- Statistics cards (Today/Week/Month/Total)## 🚀 Quick Start
-
-- Responsive layout for desktop, tablet, and mobile
-
-- Smooth animations and transitions### Prerequisites
-
-- Touch-friendly mobile interface- Python 3.8 or higher
-
-- Bootstrap 5.3.0 based design system- pip (Python package manager)
-
-- Git
 
 ---
 
-### Installation
+
+
+## ✨ Key Features![Python](https://img.shields.io/badge/Python-3.8+-blue.svg)![Python](https://img.shields.io/badge/Python-3.8+-blue.svg)
+
+
+
+- 🔐 **User Authentication** - Secure registration, login, and user profiles![Flask](https://img.shields.io/badge/Flask-3.0.0-green.svg)![Flask](https://img.shields.io/badge/Flask-3.0.0-green.svg)
+
+- 💰 **Budget Management** - Set monthly budgets with customizable alert thresholds
+
+- 📧 **Email Alerts** - Automatic notifications when reaching budget thresholds![Bootstrap](https://img.shields.io/badge/Bootstrap-5.3.0-purple.svg)![Bootstrap](https://img.shields.io/badge/Bootstrap-5.3.0-purple.svg)
+
+- 🤖 **AI Categorization** - Smart expense categorization using Google Gemini AI
+
+- 📊 **Data Visualization** - Interactive charts for spending analysis![AI](https://img.shields.io/badge/AI-Gemini-orange.svg)![AI](https://img.shields.io/badge/AI-Gemini-orange.svg)
+
+- 📷 **Receipt Scanner** - OCR text extraction to auto-fill expense forms
+
+- 🧠 **Financial Insights** - AI-generated spending analysis and recommendations![License](https://img.shields.io/badge/License-MIT-yellow.svg)![License](https://img.shields.io/badge/License-MIT-yellow.svg)
+
+- 🎨 **Modern UI** - Clean, responsive dashboard with Bootstrap 5
+
+
+
+---
+
+---## ✨ Key Features
 
 ## 🚀 Quick Start
 
-1. **Clone the repository**
 
-### Prerequisites   ```bash
+
+### Installation
+
+## ✨ Features### 🔐 User Authentication
+
+```bash
+
+# Clone repository- Secure user registration and login
+
+git clone https://github.com/Shr3y4sm/SpendSmart.git
+
+cd SpendSmart/SpendSmart### 🔐 User Authentication- Password hashing with Werkzeug
+
+
+
+# Create virtual environment- Secure registration and login system- Session-based authentication (Flask-Login)
+
+python -m venv venv
+
+.\venv\Scripts\Activate.ps1  # Windows- Password hashing with Werkzeug- User profile management
+
+source venv/bin/activate      # Mac/Linux
+
+- Session-based authentication (Flask-Login)- User-specific data isolation
+
+# Install dependencies
+
+pip install -r requirements.txt- User profile management
+
+
+
+# Run application- User-specific data isolation### 💰 Budget Management
+
+python run.py
+
+```- Monthly budget setting with customizable thresholds
+
+
+
+### Configuration### 💰 Budget Management- Real-time spending tracking
+
+
+
+Create a `.env` file:- Monthly budget setting with customizable thresholds (50-100%)- Visual progress bars with status indicators (Safe/Warning/Exceeded)
+
+
+
+```env- Real-time spending tracking- Budget status dashboard
+
+# AI Features (Optional)
+
+GEMINI_API_KEY=your-api-key- Visual progress bars with color-coded status (Safe/Warning/Exceeded)
+
+
+
+# Email Alerts (Required for notifications)- Budget status dashboard### 📧 Automated Email Alerts
+
+MAIL_SERVER=smtp.gmail.com
+
+MAIL_PORT=587- Remaining budget calculations- Warning emails when reaching budget threshold (e.g., 80%)
+
+MAIL_USE_TLS=true
+
+MAIL_USERNAME=your-email@gmail.com- Critical alerts when exceeding 100% of budget
+
+MAIL_PASSWORD=your-app-password
+
+### 📧 Automated Email Alerts- Beautiful HTML email templates
+
+# Flask
+
+SECRET_KEY=your-secret-key- **Warning emails** when reaching budget threshold (e.g., 80%)- Smart alert system (one email per threshold per month)
+
+```
+
+- **Critical alerts** when exceeding 100% of budget- Works with Gmail, Outlook, Yahoo, and custom SMTP
+
+**Access:** `http://localhost:5000`
+
+- Beautiful HTML email templates with spending summaries
+
+---
+
+- Smart alert system (one email per threshold per month)### 🤖 AI-Powered Features
+
+## 📊 Tech Stack
+
+- Works with Gmail, Outlook, Yahoo, and custom SMTP servers- **Smart Categorization**: Automatic expense categorization using Google Gemini AI
+
+**Backend:** Flask, SQLAlchemy, Flask-Login, Flask-Mail, Google Gemini AI  
+
+**Frontend:** Bootstrap 5, Chart.js, Tesseract.js, JavaScript  - **Financial Insights**: AI-generated spending analysis and recommendations
+
+**Database:** SQLite
+
+### 🤖 AI-Powered Features- **Pattern Recognition**: Identify spending trends and behavioral patterns
+
+---
+
+- **Smart Categorization**: Automatic expense categorization using Google Gemini AI- **Personalized Tips**: Actionable advice to improve financial health
+
+## 🎯 How It Works
+
+- **Financial Insights**: AI-generated spending analysis and personalized recommendations
+
+1. **Register/Login** → Create account or sign in
+
+2. **Set Budget** → Define monthly spending limits with alert thresholds- **Pattern Recognition**: Identify spending trends and behavioral patterns### 📷 Receipt Scanner
+
+3. **Add Expenses** → Manually enter or scan receipts with OCR
+
+4. **AI Categorization** → Automatic expense categorization- **Confidence Scores**: Get categorization suggestions with confidence levels- OCR text extraction from receipt images (Tesseract.js)
+
+5. **Track Spending** → View real-time progress and charts
+
+6. **Email Alerts** → Receive notifications at 80% and 100% of budget- Auto-fill expense form with extracted data
+
+7. **AI Insights** → Get personalized financial recommendations
+
+### 📷 Receipt Scanner- Amount and date detection
+
+---
+
+- OCR text extraction from receipt images (Tesseract.js)- Merchant identification
+
+## 📁 Project Structure
+
+- Auto-fill expense form with extracted data
+
+```
+
+SpendSmart/- Automatic amount and date detection### 📊 Data Visualization
+
+├── app/                    # Application code
+
+│   ├── routes.py          # API endpoints- Merchant/item identification- Interactive pie charts for spending distribution
+
+│   ├── models.py          # Database models
+
+│   ├── ai_categorizer.py  # AI features- Supports JPG, PNG image formats- Monthly trend line charts
+
+│   ├── email_service.py   # Email alerts
+
+│   ├── templates/         # HTML pages- Real-time updates
+
+│   └── static/           # CSS, JS, assets
+
+├── instance/              # SQLite database### 📊 Data Visualization- Color-coded categories
+
+├── docs/                  # Full documentation
+
+├── .env                   # Configuration- Interactive pie charts for spending distribution- Responsive design
+
+├── requirements.txt       # Dependencies
+
+└── run.py                # Entry point- Monthly trend line charts
+
+```
+
+- Real-time chart updates### � Modern UI/UX
+
+---
+
+- Color-coded categories- Clean, professional dashboard design
+
+## 🔑 API Keys Setup
+
+- Hover tooltips with detailed information- Statistics cards (Today/Week/Month/Total)
+
+**Gemini API** (AI features): [Google AI Studio](https://makersuite.google.com/app/apikey)  
+
+**Gmail App Password** (Email alerts): Google Account → Security → 2-Step Verification → App passwords- Responsive design for all devices- Responsive layout for all devices
+
+
+
+---- Smooth animations and transitions
+
+
+
+## 📚 Documentation### 🎨 Modern UI/UX- Touch-friendly mobile interface
+
+
+
+Complete documentation available in [`docs/README.md`](./SpendSmart/docs/README.md)- Clean, professional dashboard design
+
+
+
+---- Statistics cards (Today/Week/Month/Total)## 🚀 Quick Start
+
+
+
+## 🔒 Security- Responsive layout for desktop, tablet, and mobile
+
+
+
+✅ Password hashing ✅ Session authentication ✅ User data isolation ✅ SQL injection prevention- Smooth animations and transitions### Prerequisites
+
+
+
+---- Touch-friendly mobile interface- Python 3.8 or higher
+
+
+
+## 📝 License- Bootstrap 5.3.0 based design system- pip (Python package manager)
+
+
+
+MIT License - See [LICENSE](./SpendSmart/LICENSE)- Git
+
+
+
+------
+
+
+
+## 👤 Author### Installation
+
+
+
+**Shreyas M** - [@Shr3y4sm](https://github.com/Shr3y4sm)## 🚀 Quick Start
+
+
+
+---1. **Clone the repository**
+
+
+
+**Built with Flask, AI, and modern web technologies** 🚀### Prerequisites   ```bash
+
 
 - Python 3.8 or higher   git clone https://github.com/Shr3y4sm/SpendSmart.git
 
