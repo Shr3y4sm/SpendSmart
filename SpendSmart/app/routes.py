@@ -1,10 +1,15 @@
-from flask import Blueprint, render_template, request, jsonify
+from flask import Blueprint, render_template, request, jsonify, redirect, url_for, flash
+from flask_login import login_user, logout_user, login_required, current_user
+from werkzeug.security import check_password_hash
+from sqlalchemy import extract
 import json
 import os
 from datetime import datetime
 import re
 from app.ai_categorizer import AICategorizer
 from app.ai_insights import AIInsightsGenerator
+from app.models import db, User, Expense, Budget
+from app.email_service import send_budget_exceeded_email, send_budget_warning_email
 
 main = Blueprint('main', __name__)
 
@@ -106,10 +111,251 @@ def validate_expense_data(data):
     
     return errors
 
+def check_and_send_budget_alert(user, expense_date):
+    """
+    Check budget status and send email alerts if thresholds are exceeded
+    
+    Args:
+        user: Current user object
+        expense_date: Date of the expense (date object)
+    """
+    try:
+        print(f"\n📧 Checking budget alert for user: {user.email}")
+        
+        # Get budget for the expense month
+        month_str = expense_date.strftime('%Y-%m')
+        current_month = datetime.now().strftime('%Y-%m')
+        
+        print(f"   Expense month: {month_str}, Current month: {current_month}")
+        
+        # Only check for current month budget
+        if month_str != current_month:
+            print(f"   ⚠️  Skipping - expense not in current month")
+            return
+        
+        budget = Budget.query.filter_by(user_id=user.id, month=month_str).first()
+        
+        if not budget:
+            print(f"   ⚠️  No budget set for {month_str}")
+            return  # No budget set, no alert needed
+        
+        print(f"   Budget: Rs. {budget.amount}, Threshold: {budget.alert_threshold}%")
+        
+        # Calculate total spent for the month
+        year = expense_date.year
+        month = expense_date.month
+        
+        monthly_expenses = Expense.query.filter(
+            Expense.user_id == user.id,
+            extract('year', Expense.date) == year,
+            extract('month', Expense.date) == month
+        ).all()
+        
+        total_spent = sum(expense.amount for expense in monthly_expenses)
+        budget_amount = budget.amount
+        spent_percentage = (total_spent / budget_amount) * 100 if budget_amount > 0 else 0
+        
+        print(f"   Total spent: Rs. {total_spent:.2f} ({spent_percentage:.1f}%)")
+        print(f"   Warning sent: {budget.warning_email_sent}, Exceeded sent: {budget.exceeded_email_sent}")
+        
+        # Check if budget is exceeded and email hasn't been sent
+        if spent_percentage >= 100 and not budget.exceeded_email_sent:
+            print(f"   🚨 SENDING EXCEEDED EMAIL...")
+            send_budget_exceeded_email(
+                user_email=user.email,
+                user_name=user.full_name or user.username,
+                budget_amount=budget_amount,
+                total_spent=total_spent,
+                month=month_str
+            )
+            budget.exceeded_email_sent = True
+            db.session.commit()
+            print(f"   ✓ Budget exceeded email sent to {user.email}")
+        
+        # Check if threshold is reached and warning email hasn't been sent
+        elif spent_percentage >= budget.alert_threshold and not budget.warning_email_sent and not budget.exceeded_email_sent:
+            print(f"   ⚠️  SENDING WARNING EMAIL...")
+            send_budget_warning_email(
+                user_email=user.email,
+                user_name=user.full_name or user.username,
+                budget_amount=budget_amount,
+                total_spent=total_spent,
+                threshold_percentage=budget.alert_threshold,
+                month=month_str
+            )
+            budget.warning_email_sent = True
+            db.session.commit()
+            print(f"   ✓ Budget warning email sent to {user.email}")
+        else:
+            print(f"   ℹ️  No email needed at this time")
+            
+    except Exception as e:
+        print(f"   ✗ Error checking budget alert: {e}")
+        import traceback
+        traceback.print_exc()
+
 @main.route('/')
 def index():
-    """Render the main page"""
+    """Render the main page - redirect to dashboard if logged in"""
+    if current_user.is_authenticated:
+        return redirect(url_for('main.dashboard'))
+    return redirect(url_for('main.login'))
+
+@main.route('/dashboard')
+@login_required
+def dashboard():
+    """Render the dashboard page"""
     return render_template('index.html')
+
+@main.route('/register', methods=['GET', 'POST'])
+def register():
+    """User registration"""
+    if current_user.is_authenticated:
+        return redirect(url_for('main.dashboard'))
+    
+    if request.method == 'POST':
+        data = request.get_json() if request.is_json else request.form
+        
+        # Validate required fields
+        required_fields = ['full_name', 'username', 'email', 'password']
+        for field in required_fields:
+            if not data.get(field):
+                if request.is_json:
+                    return jsonify({'success': False, 'error': f'{field} is required'}), 400
+                flash(f'{field.replace("_", " ").title()} is required', 'danger')
+                return redirect(url_for('main.register'))
+        
+        # Check if username already exists
+        if User.query.filter_by(username=data.get('username')).first():
+            if request.is_json:
+                return jsonify({'success': False, 'error': 'Username already exists'}), 400
+            flash('Username already exists', 'danger')
+            return redirect(url_for('main.register'))
+        
+        # Check if email already exists
+        if User.query.filter_by(email=data.get('email')).first():
+            if request.is_json:
+                return jsonify({'success': False, 'error': 'Email already registered'}), 400
+            flash('Email already registered', 'danger')
+            return redirect(url_for('main.register'))
+        
+        # Create new user
+        try:
+            user = User(
+                full_name=data.get('full_name'),
+                username=data.get('username'),
+                email=data.get('email')
+            )
+            user.set_password(data.get('password'))
+            
+            db.session.add(user)
+            db.session.commit()
+            
+            if request.is_json:
+                return jsonify({'success': True, 'message': 'Registration successful'}), 201
+            flash('Registration successful! Please login.', 'success')
+            return redirect(url_for('main.login'))
+            
+        except Exception as e:
+            db.session.rollback()
+            if request.is_json:
+                return jsonify({'success': False, 'error': str(e)}), 500
+            flash('Registration failed. Please try again.', 'danger')
+            return redirect(url_for('main.register'))
+    
+    return render_template('register.html')
+
+@main.route('/login', methods=['GET', 'POST'])
+def login():
+    """User login"""
+    if current_user.is_authenticated:
+        return redirect(url_for('main.dashboard'))
+    
+    if request.method == 'POST':
+        data = request.get_json() if request.is_json else request.form
+        
+        username_or_email = data.get('username')
+        password = data.get('password')
+        remember = data.get('remember', False)
+        
+        if not username_or_email or not password:
+            if request.is_json:
+                return jsonify({'success': False, 'error': 'Username/email and password are required'}), 400
+            flash('Username/email and password are required', 'danger')
+            return redirect(url_for('main.login'))
+        
+        # Find user by username or email
+        user = User.query.filter(
+            (User.username == username_or_email) | (User.email == username_or_email)
+        ).first()
+        
+        if user and user.check_password(password):
+            login_user(user, remember=remember)
+            next_page = request.args.get('next')
+            if request.is_json:
+                return jsonify({'success': True, 'message': 'Login successful', 'redirect': next_page or url_for('main.dashboard')}), 200
+            return redirect(next_page or url_for('main.dashboard'))
+        else:
+            if request.is_json:
+                return jsonify({'success': False, 'error': 'Invalid username/email or password'}), 401
+            flash('Invalid username/email or password', 'danger')
+            return redirect(url_for('main.login'))
+    
+    return render_template('login.html')
+
+@main.route('/logout')
+@login_required
+def logout():
+    """User logout"""
+    logout_user()
+    flash('You have been logged out successfully', 'info')
+    return redirect(url_for('main.login'))
+
+@main.route('/profile', methods=['GET', 'POST'])
+@login_required
+def profile():
+    """User profile page"""
+    if request.method == 'POST':
+        data = request.get_json() if request.is_json else request.form
+        
+        try:
+            # Update profile information
+            if 'full_name' in data:
+                current_user.full_name = data['full_name']
+            if 'email' in data:
+                # Check if email is already taken by another user
+                existing_user = User.query.filter(User.email == data['email'], User.id != current_user.id).first()
+                if existing_user:
+                    if request.is_json:
+                        return jsonify({'success': False, 'error': 'Email already in use'}), 400
+                    flash('Email already in use', 'danger')
+                    return redirect(url_for('main.profile'))
+                current_user.email = data['email']
+            
+            # Change password if provided
+            if 'current_password' in data and 'new_password' in data:
+                if not current_user.check_password(data['current_password']):
+                    if request.is_json:
+                        return jsonify({'success': False, 'error': 'Current password is incorrect'}), 400
+                    flash('Current password is incorrect', 'danger')
+                    return redirect(url_for('main.profile'))
+                current_user.set_password(data['new_password'])
+            
+            db.session.commit()
+            
+            if request.is_json:
+                return jsonify({'success': True, 'message': 'Profile updated successfully'}), 200
+            flash('Profile updated successfully', 'success')
+            return redirect(url_for('main.profile'))
+            
+        except Exception as e:
+            db.session.rollback()
+            if request.is_json:
+                return jsonify({'success': False, 'error': str(e)}), 500
+            flash('Failed to update profile', 'danger')
+            return redirect(url_for('main.profile'))
+    
+    return render_template('profile.html')
 
 @main.route('/favicon.ico')
 def favicon():
@@ -117,14 +363,16 @@ def favicon():
     return '', 204  # No content
 
 @main.route('/api/expenses', methods=['GET'])
+@login_required
 def get_expenses():
-    """Get all expenses"""
+    """Get all expenses for current user"""
     try:
-        expenses = load_expenses()
+        expenses = Expense.query.filter_by(user_id=current_user.id).all()
+        expenses_data = [expense.to_dict() for expense in expenses]
         return jsonify({
             'success': True,
-            'data': expenses,
-            'count': len(expenses)
+            'data': expenses_data,
+            'count': len(expenses_data)
         })
     except Exception as e:
         return jsonify({
@@ -134,8 +382,9 @@ def get_expenses():
         }), 500
 
 @main.route('/api/expenses', methods=['POST'])
+@login_required
 def add_expense():
-    """Add a new expense"""
+    """Add a new expense for current user"""
     try:
         data = request.get_json()
         
@@ -154,35 +403,29 @@ def add_expense():
                 'details': validation_errors
             }), 400
         
-        # Load existing expenses
-        expenses = load_expenses()
+        # Create new expense
+        new_expense = Expense(
+            user_id=current_user.id,
+            item=data['item'].strip(),
+            category=data['category'],
+            amount=float(data['amount']),
+            date=datetime.strptime(data['date'], '%Y-%m-%d').date()
+        )
         
-        # Create new expense with unique ID
-        new_expense = {
-            'id': get_next_id(expenses),
-            'item': data['item'].strip(),
-            'category': data['category'],
-            'amount': float(data['amount']),
-            'date': data['date'],
-            'created_at': datetime.now().isoformat()
-        }
+        db.session.add(new_expense)
+        db.session.commit()
         
-        expenses.append(new_expense)
-        
-        # Save expenses
-        if not save_expenses(expenses):
-            return jsonify({
-                'success': False,
-                'error': 'Failed to save expense'
-            }), 500
+        # Check budget and send email if exceeded
+        check_and_send_budget_alert(current_user, new_expense.date)
         
         return jsonify({
             'success': True,
-            'data': new_expense,
+            'data': new_expense.to_dict(),
             'message': 'Expense added successfully'
         }), 201
         
     except Exception as e:
+        db.session.rollback()
         return jsonify({
             'success': False,
             'error': 'Internal server error',
@@ -190,28 +433,21 @@ def add_expense():
         }), 500
 
 @main.route('/api/expenses/<int:expense_id>', methods=['DELETE'])
+@login_required
 def delete_expense(expense_id):
     """Delete an expense"""
     try:
-        expenses = load_expenses()
+        # Find expense and verify ownership
+        expense = Expense.query.filter_by(id=expense_id, user_id=current_user.id).first()
         
-        # Check if expense exists
-        expense_to_delete = next((e for e in expenses if e['id'] == expense_id), None)
-        if not expense_to_delete:
+        if not expense:
             return jsonify({
                 'success': False,
                 'error': 'Expense not found'
             }), 404
         
-        # Remove expense
-        expenses = [e for e in expenses if e['id'] != expense_id]
-        
-        # Save updated expenses
-        if not save_expenses(expenses):
-            return jsonify({
-                'success': False,
-                'error': 'Failed to save changes'
-            }), 500
+        db.session.delete(expense)
+        db.session.commit()
         
         return jsonify({
             'success': True,
@@ -220,6 +456,7 @@ def delete_expense(expense_id):
         }), 200
         
     except Exception as e:
+        db.session.rollback()
         return jsonify({
             'success': False,
             'error': 'Internal server error',
@@ -227,6 +464,7 @@ def delete_expense(expense_id):
         }), 500
 
 @main.route('/api/expenses/<int:expense_id>', methods=['PUT'])
+@login_required
 def update_expense(expense_id):
     """Update an expense"""
     try:
@@ -238,11 +476,10 @@ def update_expense(expense_id):
                 'error': 'No data provided'
             }), 400
         
-        expenses = load_expenses()
+        # Find expense and verify ownership
+        expense = Expense.query.filter_by(id=expense_id, user_id=current_user.id).first()
         
-        # Find expense to update
-        expense_to_update = next((e for e in expenses if e['id'] == expense_id), None)
-        if not expense_to_update:
+        if not expense:
             return jsonify({
                 'success': False,
                 'error': 'Expense not found'
@@ -250,9 +487,12 @@ def update_expense(expense_id):
         
         # Validate data if provided
         if any(field in data for field in ['item', 'category', 'amount', 'date']):
-            # Create a copy for validation
-            validation_data = expense_to_update.copy()
-            validation_data.update(data)
+            validation_data = {
+                'item': data.get('item', expense.item),
+                'category': data.get('category', expense.category),
+                'amount': data.get('amount', expense.amount),
+                'date': data.get('date', expense.date.strftime('%Y-%m-%d'))
+            }
             
             validation_errors = validate_expense_data(validation_data)
             if validation_errors:
@@ -264,31 +504,27 @@ def update_expense(expense_id):
         
         # Update expense fields
         if 'item' in data:
-            expense_to_update['item'] = data['item'].strip()
+            expense.item = data['item'].strip()
         if 'category' in data:
-            expense_to_update['category'] = data['category']
+            expense.category = data['category']
         if 'amount' in data:
-            expense_to_update['amount'] = float(data['amount'])
+            expense.amount = float(data['amount'])
         if 'date' in data:
-            expense_to_update['date'] = data['date']
+            expense.date = datetime.strptime(data['date'], '%Y-%m-%d').date()
         
-        # Update timestamp
-        expense_to_update['updated_at'] = datetime.now().isoformat()
+        db.session.commit()
         
-        # Save updated expenses
-        if not save_expenses(expenses):
-            return jsonify({
-                'success': False,
-                'error': 'Failed to save changes'
-            }), 500
+        # Check budget after update (in case amount increased)
+        check_and_send_budget_alert(current_user, expense.date)
         
         return jsonify({
             'success': True,
-            'data': expense_to_update,
+            'data': expense.to_dict(),
             'message': 'Expense updated successfully'
         }), 200
         
     except Exception as e:
+        db.session.rollback()
         return jsonify({
             'success': False,
             'error': 'Internal server error',
@@ -296,11 +532,11 @@ def update_expense(expense_id):
         }), 500
 
 @main.route('/api/expenses/<int:expense_id>', methods=['GET'])
+@login_required
 def get_expense(expense_id):
     """Get a specific expense by ID"""
     try:
-        expenses = load_expenses()
-        expense = next((e for e in expenses if e['id'] == expense_id), None)
+        expense = Expense.query.filter_by(id=expense_id, user_id=current_user.id).first()
         
         if not expense:
             return jsonify({
@@ -310,7 +546,7 @@ def get_expense(expense_id):
         
         return jsonify({
             'success': True,
-            'data': expense
+            'data': expense.to_dict()
         })
         
     except Exception as e:
@@ -338,10 +574,11 @@ def health_check():
         }), 500
 
 @main.route('/api/stats', methods=['GET'])
+@login_required
 def get_statistics():
-    """Get expense statistics"""
+    """Get expense statistics for current user"""
     try:
-        expenses = load_expenses()
+        expenses = Expense.query.filter_by(user_id=current_user.id).all()
         
         if not expenses:
             return jsonify({
@@ -355,19 +592,20 @@ def get_statistics():
             })
         
         # Calculate statistics
-        total_amount = sum(expense['amount'] for expense in expenses)
+        total_amount = sum(expense.amount for expense in expenses)
         
         # Category breakdown
         categories = {}
         for expense in expenses:
-            category = expense['category']
+            category = expense.category
             if category not in categories:
                 categories[category] = {'count': 0, 'amount': 0.0}
             categories[category]['count'] += 1
-            categories[category]['amount'] += expense['amount']
+            categories[category]['amount'] += expense.amount
         
         # Recent expenses (last 5)
-        recent_expenses = sorted(expenses, key=lambda x: x['date'], reverse=True)[:5]
+        recent_expenses = Expense.query.filter_by(user_id=current_user.id).order_by(Expense.date.desc()).limit(5).all()
+        recent_expenses_data = [expense.to_dict() for expense in recent_expenses]
         
         return jsonify({
             'success': True,
@@ -375,7 +613,7 @@ def get_statistics():
                 'total_expenses': len(expenses),
                 'total_amount': round(total_amount, 2),
                 'categories': categories,
-                'recent_expenses': recent_expenses
+                'recent_expenses': recent_expenses_data
             }
         })
         
@@ -387,6 +625,7 @@ def get_statistics():
         }), 500
 
 @main.route('/api/categorize', methods=['POST'])
+@login_required
 def categorize_expense():
     """AI-powered expense categorization"""
     try:
@@ -426,6 +665,7 @@ def categorize_expense():
         }), 500
 
 @main.route('/api/categorize/suggestions', methods=['POST'])
+@login_required
 def get_category_suggestions():
     """Get multiple category suggestions for an expense"""
     try:
@@ -497,17 +737,20 @@ def get_week_key(date_str):
     return f"{year}-W{week:02d}"
 
 @main.route('/api/visualization/data', methods=['GET'])
+@login_required
 def get_visualization_data():
-    """Get data for charts and visualizations"""
+    """Get data for charts and visualizations for current user"""
     try:
         # Get time period from query params
         period = request.args.get('period', 'month')
         if period not in ['week', 'month', 'year']:
             period = 'month'
         
-        expenses = load_expenses()
+        expenses = Expense.query.filter_by(user_id=current_user.id).all()
+        expenses_data = [{'id': e.id, 'item': e.item, 'category': e.category, 
+                         'amount': e.amount, 'date': e.date.strftime('%Y-%m-%d')} for e in expenses]
         
-        if not expenses:
+        if not expenses_data:
             return jsonify({
                 'success': True,
                 'data': {
@@ -520,7 +763,7 @@ def get_visualization_data():
             })
         
         # Filter expenses based on time period
-        filtered_expenses = filter_expenses_by_period(expenses, period)
+        filtered_expenses = filter_expenses_by_period(expenses_data, period)
         
         if not filtered_expenses:
             return jsonify({
@@ -657,8 +900,9 @@ def get_visualization_data():
         }), 500
 
 @main.route('/api/insights', methods=['GET'])
+@login_required
 def get_insights():
-    """Get AI-powered financial insights"""
+    """Get AI-powered financial insights for current user"""
     try:
         # Get time period from query params
         period = request.args.get('period', 'week')
@@ -666,7 +910,9 @@ def get_insights():
             period = 'week'
         
         # Load expenses
-        expenses = load_expenses()
+        expenses = Expense.query.filter_by(user_id=current_user.id).all()
+        expenses_data = [{'id': e.id, 'item': e.item, 'category': e.category, 
+                         'amount': e.amount, 'date': e.date.strftime('%Y-%m-%d')} for e in expenses]
         
         # Get AI insights generator
         insights_generator = get_ai_insights()
@@ -678,7 +924,7 @@ def get_insights():
             }), 503
         
         # Generate insights
-        insights_data = insights_generator.generate_insights(expenses, period)
+        insights_data = insights_generator.generate_insights(expenses_data, period)
         
         return jsonify({
             'success': True,
@@ -693,14 +939,17 @@ def get_insights():
         }), 500
 
 @main.route('/api/insights/trends', methods=['GET'])
+@login_required
 def get_spending_trends():
-    """Get spending trend analysis"""
+    """Get spending trend analysis for current user"""
     try:
         # Get days parameter
         days = int(request.args.get('days', 30))
         
         # Load expenses
-        expenses = load_expenses()
+        expenses = Expense.query.filter_by(user_id=current_user.id).all()
+        expenses_data = [{'id': e.id, 'item': e.item, 'category': e.category, 
+                         'amount': e.amount, 'date': e.date.strftime('%Y-%m-%d')} for e in expenses]
         
         # Get AI insights generator
         insights_generator = get_ai_insights()
@@ -712,7 +961,7 @@ def get_spending_trends():
             }), 503
         
         # Generate trends
-        trends_data = insights_generator.get_spending_trends(expenses, days)
+        trends_data = insights_generator.get_spending_trends(expenses_data, days)
         
         return jsonify({
             'success': True,
@@ -727,12 +976,15 @@ def get_spending_trends():
         }), 500
 
 @main.route('/api/budget', methods=['GET'])
+@login_required
 def get_budget():
-    """Get current budget settings"""
+    """Get current budget settings for current user"""
     try:
-        budget_data = load_budget()
+        # Get current month budget
+        current_month = datetime.now().strftime('%Y-%m')
+        budget = Budget.query.filter_by(user_id=current_user.id, month=current_month).first()
         
-        if not budget_data:
+        if not budget:
             return jsonify({
                 'success': True,
                 'data': None
@@ -740,7 +992,7 @@ def get_budget():
         
         return jsonify({
             'success': True,
-            'data': budget_data
+            'data': budget.to_dict()
         })
         
     except Exception as e:
@@ -751,8 +1003,9 @@ def get_budget():
         }), 500
 
 @main.route('/api/budget', methods=['POST'])
+@login_required
 def set_budget():
-    """Set monthly budget"""
+    """Set monthly budget for current user"""
     try:
         data = request.get_json()
         
@@ -784,20 +1037,29 @@ def set_budget():
                 'error': 'Alert threshold must be between 50% and 100%'
             }), 400
         
-        # Create budget data
-        budget_data = {
-            'amount': amount,
-            'alert_threshold': alert_threshold,
-            'created_at': datetime.now().isoformat(),
-            'updated_at': datetime.now().isoformat()
-        }
+        # Get or create budget for current month
+        current_month = datetime.now().strftime('%Y-%m')
+        budget = Budget.query.filter_by(user_id=current_user.id, month=current_month).first()
         
-        # Save budget
-        save_budget(budget_data)
+        if budget:
+            # Update existing budget
+            budget.amount = amount
+            budget.alert_threshold = alert_threshold
+        else:
+            # Create new budget
+            budget = Budget(
+                user_id=current_user.id,
+                month=current_month,
+                amount=amount,
+                alert_threshold=alert_threshold
+            )
+            db.session.add(budget)
+        
+        db.session.commit()
         
         return jsonify({
             'success': True,
-            'data': budget_data,
+            'data': budget.to_dict(),
             'message': 'Budget set successfully'
         })
         
@@ -808,6 +1070,7 @@ def set_budget():
             'message': str(e)
         }), 400
     except Exception as e:
+        db.session.rollback()
         return jsonify({
             'success': False,
             'error': 'Failed to set budget',
@@ -815,12 +1078,15 @@ def set_budget():
         }), 500
 
 @main.route('/api/budget/status', methods=['GET'])
+@login_required
 def get_budget_status():
-    """Get budget status with current spending"""
+    """Get budget status with current spending for current user"""
     try:
-        budget_data = load_budget()
+        # Get current month budget
+        current_month = datetime.now().strftime('%Y-%m')
+        budget = Budget.query.filter_by(user_id=current_user.id, month=current_month).first()
         
-        if not budget_data:
+        if not budget:
             return jsonify({
                 'success': True,
                 'data': {
@@ -830,17 +1096,19 @@ def get_budget_status():
             })
         
         # Get current month's expenses
-        expenses = load_expenses()
-        current_month = datetime.now().strftime('%Y-%m')
+        from sqlalchemy import extract
+        current_year = datetime.now().year
+        current_month_num = datetime.now().month
         
-        monthly_expenses = [
-            expense for expense in expenses 
-            if expense['date'].startswith(current_month)
-        ]
+        monthly_expenses = Expense.query.filter(
+            Expense.user_id == current_user.id,
+            extract('year', Expense.date) == current_year,
+            extract('month', Expense.date) == current_month_num
+        ).all()
         
-        total_spent = sum(float(expense['amount']) for expense in monthly_expenses)
-        budget_amount = budget_data['amount']
-        alert_threshold = budget_data['alert_threshold']
+        total_spent = sum(expense.amount for expense in monthly_expenses)
+        budget_amount = budget.amount
+        alert_threshold = budget.alert_threshold
         
         # Calculate percentages
         spent_percentage = (total_spent / budget_amount) * 100 if budget_amount > 0 else 0
@@ -892,22 +1160,4 @@ def get_budget_status():
             'message': str(e)
         }), 500
 
-def load_budget():
-    """Load budget data from file"""
-    try:
-        with open('budget_data.json', 'r') as f:
-            return json.load(f)
-    except FileNotFoundError:
-        return None
-    except Exception as e:
-        print(f"Error loading budget: {e}")
-        return None
 
-def save_budget(budget_data):
-    """Save budget data to file"""
-    try:
-        with open('budget_data.json', 'w') as f:
-            json.dump(budget_data, f, indent=2)
-    except Exception as e:
-        print(f"Error saving budget: {e}")
-        raise e

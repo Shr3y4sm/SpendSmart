@@ -1,5 +1,6 @@
 from flask import Flask, jsonify
 from flask_cors import CORS
+from flask_login import LoginManager
 import os
 from dotenv import load_dotenv
 
@@ -14,8 +15,35 @@ def create_app():
     app.config['JSON_SORT_KEYS'] = False
     app.config['JSONIFY_PRETTYPRINT_REGULAR'] = True
     
+    # Database configuration
+    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///spendsmartusers.db'
+    app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+    
     # Enable CORS for all routes
     CORS(app, origins=['http://localhost:5000', 'http://127.0.0.1:5000'])
+    
+    # Initialize extensions
+    from app.models import db, User
+    db.init_app(app)
+    
+    # Initialize Flask-Mail for email notifications
+    from app.email_service import init_mail
+    init_mail(app)
+    
+    # Initialize Flask-Login
+    login_manager = LoginManager()
+    login_manager.init_app(app)
+    login_manager.login_view = 'main.login'
+    login_manager.login_message = 'Please log in to access this page.'
+    login_manager.login_message_category = 'info'
+    
+    @login_manager.user_loader
+    def load_user(user_id):
+        return User.query.get(int(user_id))
+    
+    # Create database tables
+    with app.app_context():
+        db.create_all()
     
     # Register blueprints
     from app.routes import main
