@@ -232,24 +232,53 @@ GET  /api/budget/status - Get budget status with spending
 
 ---
 
-## 📷 Receipt Scanner (OCR)
+## 📷 Receipt Scanner (Gemini Vision + OCR)
+
+Primary extraction uses Google Gemini Vision API with automatic fallback to Tesseract.js when the API is unavailable. This significantly improves accuracy and returns structured data ready to auto‑fill the expense form.
 
 ### Features
-- ✅ Upload receipt images (JPG, PNG)
-- ✅ OCR text extraction (Tesseract.js)
-- ✅ Auto-fill expense form
-- ✅ Amount and date detection
-- ✅ Merchant/item identification
-- ✅ Progress tracking
 
-### How to Use:
-1. Click "Choose Receipt Image"
-2. Select image file
-3. Preview appears
-4. Click "Extract Text"
-5. Form auto-fills with extracted data
-6. Review and submit
+- ✅ Gemini Vision extraction of merchant, amount, date, and line items
+- ✅ Automatic category suggestion with confidence
+- ✅ Tesseract.js fallback if Vision API fails
+- ✅ Auto-fill expense form with confidence badge
+- ✅ Works with JPG/PNG receipts and mobile camera uploads
 
+### How to Use
+
+1. Click "Choose Receipt Image" and select a photo (or use your phone camera)
+2. Preview appears
+3. Click "Extract Text"
+4. If Vision API succeeds, fields are auto-filled with structured data; otherwise OCR fallback runs
+5. Review, adjust if needed, and submit
+
+### API Endpoint
+
+```http
+POST /api/receipt/scan   (multipart/form-data, field: receipt)
+```
+
+Response (example):
+
+```json
+{
+   "merchant": "Walmart",
+   "amount": 42.83,
+   "date": "2025-10-28",
+   "category": "Groceries",
+   "confidence": 0.91,
+   "items": [
+      { "name": "Milk", "qty": 1, "price": 4.99 },
+      { "name": "Eggs", "qty": 1, "price": 3.49 }
+   ]
+}
+```
+
+Troubleshooting:
+
+- Ensure `GEMINI_API_KEY` is set in `.env`
+- Use well-lit photos; avoid heavy glare and extreme angles
+- Large images are automatically resized; max size ~5MB
 ---
 
 ## 📊 Data Visualization
@@ -322,6 +351,11 @@ POST   /api/categorize         - AI categorization
 POST   /api/categorize/suggestions - Get category suggestions
 GET    /api/insights           - Get AI insights
 GET    /api/insights?period=week - Get period insights
+```
+
+### Receipt Scanning
+``` 
+POST   /api/receipt/scan       - Parse receipt image (Gemini Vision + OCR fallback)
 ```
 
 ### Visualization

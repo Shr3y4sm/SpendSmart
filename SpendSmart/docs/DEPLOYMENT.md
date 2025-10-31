@@ -49,6 +49,11 @@ Click **"Environment"** tab and add:
 
 ## 📝 Important Notes
 
+### AI & Receipt Scanning
+- `/api/receipt/scan` uses your `GEMINI_API_KEY` to parse receipts with Google Gemini Vision
+- If `GEMINI_API_KEY` is missing, the client will fall back to Tesseract.js OCR (reduced accuracy)
+- Image handling uses Pillow (already listed in `requirements.txt`)
+
 ### Database
 - SQLite works on Render but resets when service restarts
 - For persistent data, upgrade to PostgreSQL (still free):
