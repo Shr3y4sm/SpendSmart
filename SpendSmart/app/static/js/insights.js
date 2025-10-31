@@ -54,79 +54,76 @@ function displayInsights(data) {
         </div>
     `;
     
-    // Display insights
+    // Display insights in vertical columns
+    html += '<div class="row g-3 mb-3">';
+    
+    // Column 1: Key Insights
     if (insights && insights.length > 0) {
-        html += '<div class="mb-4"><h6 class="text-primary mb-3"><i class="bi bi-lightbulb me-2"></i>Key Insights</h6>';
+        html += '<div class="col-md-6 col-lg-3">';
+        html += '<div class="insights-column">';
+        html += '<h6 class="insights-header text-primary mb-3"><i class="bi bi-lightbulb me-2"></i>Key Insights</h6>';
         insights.forEach(insight => {
             html += `
-                <div class="insight-item insight d-flex align-items-start">
-                    <div class="insight-icon insight">
-                        <i class="bi bi-lightbulb"></i>
-                    </div>
-                    <div class="insight-content">
-                        <p class="insight-text">${insight}</p>
-                    </div>
+                <div class="insight-compact mb-2">
+                    <i class="bi bi-check-circle-fill text-primary me-2"></i>
+                    <span class="insight-brief">${shortenInsight(insight)}</span>
                 </div>
             `;
         });
-        html += '</div>';
+        html += '</div></div>';
     }
     
-    // Display recommendations
+    // Column 2: Recommendations
     if (recommendations && recommendations.length > 0) {
-        html += '<div class="mb-4"><h6 class="text-warning mb-3"><i class="bi bi-bullseye me-2"></i>Recommendations</h6>';
+        html += '<div class="col-md-6 col-lg-3">';
+        html += '<div class="insights-column">';
+        html += '<h6 class="insights-header text-warning mb-3"><i class="bi bi-bullseye me-2"></i>Recommendations</h6>';
         recommendations.forEach(recommendation => {
             html += `
-                <div class="insight-item recommendation d-flex align-items-start">
-                    <div class="insight-icon recommendation">
-                        <i class="bi bi-bullseye"></i>
-                    </div>
-                    <div class="insight-content">
-                        <p class="insight-text">${recommendation}</p>
-                    </div>
+                <div class="insight-compact mb-2">
+                    <i class="bi bi-lightbulb-fill text-warning me-2"></i>
+                    <span class="insight-brief">${shortenInsight(recommendation)}</span>
                 </div>
             `;
         });
-        html += '</div>';
+        html += '</div></div>';
     }
     
-    // Display patterns
+    // Column 3: Spending Patterns
     if (patterns && patterns.length > 0) {
-        html += '<div class="mb-4"><h6 class="text-info mb-3"><i class="bi bi-graph-up me-2"></i>Spending Patterns</h6>';
+        html += '<div class="col-md-6 col-lg-3">';
+        html += '<div class="insights-column">';
+        html += '<h6 class="insights-header text-info mb-3"><i class="bi bi-graph-up me-2"></i>Spending Patterns</h6>';
         patterns.forEach(pattern => {
             html += `
-                <div class="insight-item pattern d-flex align-items-start">
-                    <div class="insight-icon pattern">
-                        <i class="bi bi-graph-up"></i>
-                    </div>
-                    <div class="insight-content">
-                        <p class="insight-text">${pattern}</p>
-                    </div>
+                <div class="insight-compact mb-2">
+                    <i class="bi bi-bar-chart-fill text-info me-2"></i>
+                    <span class="insight-brief">${shortenInsight(pattern)}</span>
                 </div>
             `;
         });
-        html += '</div>';
+        html += '</div></div>';
     }
     
-    // Display alerts
+    // Column 4: Alerts
     if (alerts && alerts.length > 0) {
-        html += '<div class="mb-4"><h6 class="text-danger mb-3"><i class="bi bi-exclamation-triangle me-2"></i>Alerts</h6>';
+        html += '<div class="col-md-6 col-lg-3">';
+        html += '<div class="insights-column">';
+        html += '<h6 class="insights-header text-danger mb-3"><i class="bi bi-exclamation-triangle me-2"></i>Alerts</h6>';
         alerts.forEach(alert => {
             const severityClass = alert.severity === 'high' ? 'danger' : alert.severity === 'medium' ? 'warning' : 'info';
             html += `
-                <div class="insight-item alert d-flex align-items-start">
-                    <div class="insight-icon alert">
-                        <i class="bi bi-exclamation-triangle"></i>
-                    </div>
-                    <div class="insight-content">
-                        <p class="insight-text">${alert.message}</p>
-                    </div>
-                    <span class="alert-badge ${severityClass}">${alert.severity.toUpperCase()}</span>
+                <div class="insight-compact mb-2">
+                    <i class="bi bi-exclamation-circle-fill text-${severityClass} me-2"></i>
+                    <span class="insight-brief">${shortenInsight(alert.message)}</span>
+                    <span class="severity-badge badge bg-${severityClass} badge-sm ms-2">${alert.severity.charAt(0).toUpperCase()}</span>
                 </div>
             `;
         });
-        html += '</div>';
+        html += '</div></div>';
     }
+    
+    html += '</div>';
     
     // Show category breakdown if available
     if (analytics.category_percentages && Object.keys(analytics.category_percentages).length > 0) {
@@ -153,6 +150,30 @@ function displayInsights(data) {
     }
     
     insightsContent.innerHTML = html;
+}
+
+// Helper function to shorten long insights
+function shortenInsight(text) {
+    // Extract key information and make it more concise
+    if (text.length <= 100) return text;
+    
+    // Try to find the main point (usually after ":" or before ".")
+    const colonIndex = text.indexOf(':');
+    const firstSentence = text.split('.')[0];
+    
+    if (colonIndex > 0 && colonIndex < 80) {
+        const afterColon = text.substring(colonIndex + 1).trim();
+        const shortened = afterColon.split('.')[0];
+        return shortened.length < 100 ? shortened : shortened.substring(0, 100) + '...';
+    }
+    
+    // Return first sentence if it's reasonable length
+    if (firstSentence.length <= 120) {
+        return firstSentence + '.';
+    }
+    
+    // Otherwise truncate intelligently
+    return text.substring(0, 100) + '...';
 }
 
 function displayInsightsError(message) {

@@ -657,4 +657,87 @@ button:hover:after {
 .progress-bar{
     color: black;
 }
+
+/* Insights Column Layout - Compact & Readable */
+.insights-column {
+    background: #f8f9fa;
+    border-radius: 10px;
+    padding: 1.25rem;
+    height: 100%;
+    border: 1px solid #e9ecef;
+    transition: all 0.3s ease;
+}
+
+.insights-column:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
+    border-color: rgba(13, 110, 253, 0.2);
+}
+
+.insights-header {
+    font-size: 0.95rem;
+    font-weight: 600;
+    padding-bottom: 0.75rem;
+    border-bottom: 2px solid currentColor;
+    margin-bottom: 1rem !important;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.insight-compact {
+    display: flex;
+    align-items: flex-start;
+    padding: 0.65rem 0;
+    border-bottom: 1px solid #e9ecef;
+    transition: all 0.2s ease;
+}
+
+.insight-compact:last-child {
+    border-bottom: none;
+}
+
+.insight-compact:hover {
+    background: rgba(13, 110, 253, 0.03);
+    padding-left: 0.5rem;
+    margin-left: -0.5rem;
+    border-radius: 6px;
+}
+
+.insight-compact i {
+    font-size: 0.9rem;
+    margin-top: 0.15rem;
+    flex-shrink: 0;
+}
+
+.insight-brief {
+    font-size: 0.875rem;
+    line-height: 1.5;
+    color: #495057;
+    flex: 1;
+}
+
+.severity-badge {
+    font-size: 0.65rem !important;
+    padding: 0.2rem 0.4rem !important;
+    font-weight: 600;
+    border-radius: 4px;
+    flex-shrink: 0;
+}
+
+/* Responsive adjustments */
+@media (max-width: 991px) {
+    .insights-column {
+        margin-bottom: 1rem;
+    }
+}
+
+@media (max-width: 767px) {
+    .insights-header {
+        font-size: 0.85rem;
+    }
+    
+    .insight-brief {
+        font-size: 0.8rem;
+    }
+}
   

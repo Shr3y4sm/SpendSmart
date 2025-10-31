@@ -156,7 +156,7 @@ class AIInsightsGenerator:
         avg_daily = analytics['avg_daily_spending']
         
         prompt = f"""
-        Analyze this spending data for the past {period} and provide personalized financial insights:
+        Analyze this spending data for the past {period} and provide CONCISE financial insights:
         
         Total Spending: ${total_amount}
         Average Daily Spending: ${avg_daily}
@@ -165,28 +165,34 @@ class AIInsightsGenerator:
         Category Breakdown:
         {json.dumps(category_percentages, indent=2)}
         
-        Please provide:
-        1. 2-3 key insights about spending patterns
-        2. 2-3 actionable recommendations for improvement
-        3. 1-2 spending pattern observations
+        IMPORTANT: Keep each point under 100 characters. Be brief and direct.
+        
+        Provide:
+        1. 2-3 SHORT key insights (what stands out in spending)
+        2. 2-3 BRIEF actionable recommendations (how to improve)
+        3. 1-2 CONCISE patterns (spending behaviors)
         
         Respond in JSON format:
         {{
             "insights": [
-                "Insight 1 about spending patterns",
-                "Insight 2 about spending patterns"
+                "Brief insight 1",
+                "Brief insight 2"
             ],
             "recommendations": [
-                "Specific actionable recommendation 1",
-                "Specific actionable recommendation 2"
+                "Quick actionable tip 1",
+                "Quick actionable tip 2"
             ],
             "patterns": [
-                "Pattern observation 1",
-                "Pattern observation 2"
+                "Short pattern 1",
+                "Short pattern 2"
             ]
         }}
         
-        Be specific, actionable, and encouraging. Focus on practical advice.
+        RULES:
+        - Each point: 60-100 characters max
+        - Use simple language
+        - Be specific with numbers/percentages
+        - Focus on the most impactful insights
         """
         
         return prompt
