@@ -1160,4 +1160,180 @@ def get_budget_status():
             'message': str(e)
         }), 500
 
+@main.route('/api/receipt/scan', methods=['POST'])
+@login_required
+def scan_receipt():
+    """
+    Scan receipt image using Google Gemini Vision API
+    Extracts: merchant, amount, date, category, items
+    """
+    try:
+        # Check if file was uploaded
+        if 'receipt' not in request.files:
+            return jsonify({
+                'success': False,
+                'error': 'No receipt image uploaded'
+            }), 400
+        
+        file = request.files['receipt']
+        
+        # Validate file
+        if file.filename == '':
+            return jsonify({
+                'success': False,
+                'error': 'No file selected'
+            }), 400
+        
+        # Check file type
+        allowed_extensions = {'png', 'jpg', 'jpeg', 'gif', 'bmp', 'webp'}
+        file_ext = file.filename.rsplit('.', 1)[1].lower() if '.' in file.filename else ''
+        
+        if file_ext not in allowed_extensions:
+            return jsonify({
+                'success': False,
+                'error': 'Invalid file type. Please upload an image file (PNG, JPG, etc.)'
+            }), 400
+        
+        # Check file size (max 10MB)
+        file.seek(0, 2)  # Seek to end
+        file_size = file.tell()
+        file.seek(0)  # Reset to beginning
+        
+        if file_size > 10 * 1024 * 1024:
+            return jsonify({
+                'success': False,
+                'error': 'File too large. Maximum size is 10MB'
+            }), 400
+        
+        # Read image data
+        image_data = file.read()
+        
+        # Check if Gemini API is available
+        gemini_api_key = os.getenv('GEMINI_API_KEY')
+        if not gemini_api_key:
+            return jsonify({
+                'success': False,
+                'error': 'Gemini API not configured. Please add GEMINI_API_KEY to environment variables.'
+            }), 500
+        
+        # Import and configure Gemini
+        import google.generativeai as genai
+        from PIL import Image
+        import io
+        
+        genai.configure(api_key=gemini_api_key)
+        
+        # Create image from bytes
+        image = Image.open(io.BytesIO(image_data))
+        
+        # Create model
+        model = genai.GenerativeModel('gemini-2.0-flash-exp')
+        
+        # Create prompt for receipt analysis
+        prompt = """
+        Analyze this receipt image and extract the following information in JSON format:
+
+        1. merchant: The store/merchant name (string)
+        2. amount: The total amount paid (number only, no currency symbols)
+        3. date: The date of purchase in YYYY-MM-DD format
+        4. category: The most appropriate category from these options:
+           - Food & Dining (restaurants, cafes, groceries)
+           - Transportation (gas, uber, parking, public transit)
+           - Shopping (retail, clothing, electronics)
+           - Entertainment (movies, games, events)
+           - Bills & Utilities (electricity, water, internet, phone)
+           - Healthcare (medical, pharmacy, fitness)
+           - Education (books, courses, tuition)
+           - Others (anything else)
+        5. items: Array of individual items purchased (if visible and readable)
+        6. confidence: Your confidence level in the extraction (high/medium/low)
+
+        Return ONLY valid JSON in this exact format:
+        {
+            "merchant": "Store Name",
+            "amount": "0.00",
+            "date": "YYYY-MM-DD",
+            "category": "Category Name",
+            "items": ["item1", "item2"],
+            "confidence": "high"
+        }
+
+        If you cannot read certain fields, use empty strings for text fields, "0.00" for amount, today's date for date, and "Others" for category.
+        Be accurate and extract exactly what you see on the receipt.
+        """
+        
+        # Generate content
+        response = model.generate_content([prompt, image])
+        response_text = response.text.strip()
+        
+        # Parse JSON response
+        import json
+        import re
+        
+        # Try to extract JSON from response
+        json_match = re.search(r'\{.*\}', response_text, re.DOTALL)
+        if json_match:
+            json_str = json_match.group(0)
+            parsed_data = json.loads(json_str)
+        else:
+            # If no JSON found, create fallback response
+            parsed_data = {
+                'merchant': '',
+                'amount': '0.00',
+                'date': datetime.now().strftime('%Y-%m-%d'),
+                'category': 'Others',
+                'items': [],
+                'confidence': 'low'
+            }
+        
+        # Validate and clean data
+        if 'amount' in parsed_data:
+            # Remove currency symbols and clean amount
+            amount_str = str(parsed_data['amount'])
+            amount_str = re.sub(r'[^\d.]', '', amount_str)
+            parsed_data['amount'] = amount_str if amount_str else '0.00'
+        
+        if 'date' in parsed_data:
+            # Validate date format
+            try:
+                datetime.strptime(parsed_data['date'], '%Y-%m-%d')
+            except:
+                parsed_data['date'] = datetime.now().strftime('%Y-%m-%d')
+        
+        # Ensure category is valid
+        valid_categories = [
+            'Food & Dining', 'Transportation', 'Shopping', 'Entertainment',
+            'Bills & Utilities', 'Healthcare', 'Education', 'Others'
+        ]
+        if 'category' not in parsed_data or parsed_data['category'] not in valid_categories:
+            parsed_data['category'] = 'Others'
+        
+        # Use merchant name as item if no items found
+        if 'items' not in parsed_data or not parsed_data['items']:
+            if 'merchant' in parsed_data and parsed_data['merchant']:
+                parsed_data['items'] = [parsed_data['merchant']]
+            else:
+                parsed_data['items'] = ['Receipt Item']
+        
+        return jsonify({
+            'success': True,
+            'data': parsed_data,
+            'message': 'Receipt scanned successfully'
+        })
+        
+    except json.JSONDecodeError as e:
+        return jsonify({
+            'success': False,
+            'error': 'Failed to parse receipt data',
+            'message': f'Could not understand the receipt format. Please try a clearer image.'
+        }), 500
+    
+    except Exception as e:
+        print(f"Receipt scan error: {e}")
+        return jsonify({
+            'success': False,
+            'error': 'Failed to scan receipt',
+            'message': str(e)
+        }), 500
+
 

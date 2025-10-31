@@ -76,7 +76,7 @@ function showImagePreview(imageSrc) {
     previewDiv.style.display = 'block';
 }
 
-// Process receipt using OCR
+// Process receipt using Gemini Vision API (with Tesseract.js fallback)
 async function processReceipt() {
     if (!currentReceiptImage) {
         showAlert('No receipt image selected', 'warning');
@@ -87,13 +87,78 @@ async function processReceipt() {
     showProcessingState(true);
     
     try {
-        console.log('Starting OCR processing...');
+        console.log('Starting receipt processing with Gemini Vision API...');
+        
+        // Get the file from the input
+        const fileInput = document.getElementById('receiptUpload');
+        const file = fileInput.files[0];
+        
+        if (!file) {
+            showAlert('No file selected', 'warning');
+            return;
+        }
+        
+        // Create form data
+        const formData = new FormData();
+        formData.append('receipt', file);
+        
+        // Try Gemini Vision API first
+        try {
+            const response = await fetch('/api/receipt/scan', {
+                method: 'POST',
+                body: formData
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                console.log('Gemini Vision extracted data:', result.data);
+                
+                // Show confidence level
+                const confidence = result.data.confidence || 'medium';
+                const confidenceMsg = confidence === 'high' ? '✨ High confidence' : 
+                                     confidence === 'medium' ? '⚡ Medium confidence' : 
+                                     '⚠️ Low confidence - please verify';
+                
+                // Auto-fill form with extracted data
+                autoFillExpenseFormAdvanced(result.data);
+                
+                showAlert(`Receipt processed successfully! ${confidenceMsg}`, 'success');
+                return;
+            } else {
+                throw new Error(result.error || 'API failed');
+            }
+        } catch (apiError) {
+            console.warn('Gemini Vision API failed, falling back to Tesseract.js:', apiError);
+            showAlert('Using backup OCR method...', 'info');
+            
+            // Fallback to Tesseract.js
+            await processReceiptWithTesseract();
+        }
+        
+    } catch (error) {
+        console.error('Receipt processing error:', error);
+        showAlert('Failed to process receipt. Please try again with a clearer image.', 'danger');
+    } finally {
+        showProcessingState(false);
+    }
+}
+
+// Fallback: Process receipt using Tesseract.js OCR
+async function processReceiptWithTesseract() {
+    try {
+        console.log('Starting Tesseract.js OCR processing...');
         
         // Convert object URL to blob for OCR
         const response = await fetch(currentReceiptImage);
         const blob = await response.blob();
         
-        // Use Tesseract.js for OCR with better error handling
+        // Check if Tesseract is available
+        if (typeof Tesseract === 'undefined') {
+            throw new Error('Tesseract.js not loaded');
+        }
+        
+        // Use Tesseract.js for OCR
         const { data: { text } } = await Tesseract.recognize(
             blob,
             'eng',
@@ -103,7 +168,6 @@ async function processReceipt() {
                         console.log('OCR Progress:', Math.round(m.progress * 100) + '%');
                     }
                 },
-                // Add OCR engine options for better compatibility
                 tessedit_pageseg_mode: Tesseract.PSM.AUTO,
                 tessedit_char_whitelist: '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz.,:/-₹Rs '
             }
@@ -120,21 +184,11 @@ async function processReceipt() {
         const parsedData = parseReceiptText(text);
         autoFillExpenseForm(parsedData);
         
-        showAlert('Receipt processed successfully! Form auto-filled.', 'success');
+        showAlert('Receipt processed successfully! (Basic OCR)', 'success');
         
     } catch (error) {
-        console.error('OCR processing error:', error);
-        
-        // Provide more specific error messages
-        if (error.message.includes('read image')) {
-            showAlert('Failed to read image. Please try a different image format (JPG, PNG recommended).', 'danger');
-        } else if (error.message.includes('network')) {
-            showAlert('Network error during processing. Please check your internet connection.', 'danger');
-        } else {
-            showAlert('Failed to process receipt. Please try again with a clearer image.', 'danger');
-        }
-    } finally {
-        showProcessingState(false);
+        console.error('Tesseract OCR error:', error);
+        throw error;
     }
 }
 
@@ -234,7 +288,7 @@ function formatDate(dateStr) {
     }
 }
 
-// Auto-fill expense form with parsed data
+// Auto-fill expense form with parsed data (basic version for Tesseract)
 function autoFillExpenseForm(data) {
     console.log('Auto-filling form with data:', data);
     
@@ -265,6 +319,75 @@ function autoFillExpenseForm(data) {
     
     // Show success message
     showAlert('Form auto-filled from receipt! Please review and adjust if needed.', 'info');
+}
+
+// Auto-fill expense form with advanced data from Gemini Vision API
+function autoFillExpenseFormAdvanced(data) {
+    console.log('Auto-filling form with advanced data:', data);
+    
+    // Fill item name (use merchant name or first item)
+    const itemName = data.merchant || (data.items && data.items.length > 0 ? data.items[0] : '');
+    if (itemName) {
+        document.getElementById('itemName').value = itemName;
+    }
+    
+    // Fill amount
+    if (data.amount && data.amount !== '0.00') {
+        document.getElementById('amount').value = data.amount;
+    }
+    
+    // Fill date
+    if (data.date) {
+        document.getElementById('date').value = data.date;
+    } else {
+        document.getElementById('date').valueAsDate = new Date();
+    }
+    
+    // Fill category (Gemini already categorized it!)
+    if (data.category) {
+        const categorySelect = document.getElementById('category');
+        // Find matching option
+        for (let option of categorySelect.options) {
+            if (option.value === data.category) {
+                categorySelect.value = data.category;
+                break;
+            }
+        }
+    }
+    
+    // Show confidence indicator
+    const confidence = data.confidence || 'medium';
+    let confidenceColor = confidence === 'high' ? 'success' : 
+                         confidence === 'medium' ? 'info' : 'warning';
+    
+    // Add visual indicator to form
+    const formElement = document.getElementById('expenseForm');
+    const existingBadge = formElement.querySelector('.confidence-badge');
+    if (existingBadge) existingBadge.remove();
+    
+    const badge = document.createElement('div');
+    badge.className = `alert alert-${confidenceColor} confidence-badge mt-2`;
+    badge.innerHTML = `
+        <small>
+            <i class="bi bi-robot me-1"></i>
+            <strong>AI Confidence:</strong> ${confidence.toUpperCase()}
+            ${confidence !== 'high' ? '- Please verify the extracted data' : ''}
+        </small>
+    `;
+    formElement.appendChild(badge);
+    
+    // Remove badge after 5 seconds
+    setTimeout(() => {
+        if (badge && badge.parentNode) {
+            badge.remove();
+        }
+    }, 5000);
+    
+    // Show items if multiple were detected
+    if (data.items && data.items.length > 1) {
+        console.log('Multiple items detected:', data.items);
+        // Could show a modal here to add all items in the future
+    }
 }
 
 // Show/hide processing state
