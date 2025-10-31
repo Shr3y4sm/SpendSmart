@@ -21,6 +21,7 @@ git push origin main
    - **Region:** Choose closest to you
    - **Branch:** `main`
    - **Runtime:** `Python 3`
+   - **Root Directory:** `SpendSmart`
    - **Build Command:** `pip install -r requirements.txt`
    - **Start Command:** `gunicorn run:app`
 

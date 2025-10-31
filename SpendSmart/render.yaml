@@ -4,6 +4,7 @@ services:
     env: python
     region: oregon
     plan: free
+    rootDir: SpendSmart
     buildCommand: pip install -r requirements.txt
     startCommand: gunicorn --bind 0.0.0.0:$PORT run:app
     envVars:

@@ -34,6 +34,11 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Load initial insights
     loadInsights('week');
+    
+    // Initialize budget management
+    if (typeof initBudgetManagement === 'function') {
+        initBudgetManagement();
+    }
 });
 
 // Handle form submission
