@@ -49,6 +49,12 @@ async function handleBudgetSubmit(e) {
             // Update budget status display
             loadBudgetStatus();
             
+            // Refresh charts to show new budget threshold line
+            if (typeof updateVisualizations === 'function') {
+                const selectedPeriod = document.querySelector('input[name="chartFilter"]:checked')?.value || 'month';
+                updateVisualizations(selectedPeriod);
+            }
+            
             // Reset form
             document.getElementById('budgetForm').reset();
             document.getElementById('budgetAlertThreshold').value = 80;

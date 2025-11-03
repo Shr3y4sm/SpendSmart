@@ -207,6 +207,12 @@ def dashboard():
     """Render the dashboard page"""
     return render_template('index.html')
 
+@main.route('/receipt')
+@login_required
+def receipt_page():
+    """Receipt upload and OCR page (Tesseract-only, no Gemini)"""
+    return render_template('receipt.html')
+
 @main.route('/register', methods=['GET', 'POST'])
 def register():
     """User registration"""
@@ -751,6 +757,11 @@ def get_visualization_data():
                          'amount': e.amount, 'date': e.date.strftime('%Y-%m-%d')} for e in expenses]
         
         if not expenses_data:
+            # Get current budget even if no expenses
+            current_month = datetime.now().strftime('%Y-%m')
+            budget = Budget.query.filter_by(user_id=current_user.id, month=current_month).first()
+            budget_data = budget.to_dict() if budget else None
+            
             return jsonify({
                 'success': True,
                 'data': {
@@ -758,7 +769,8 @@ def get_visualization_data():
                     'trends': [],
                     'category_breakdown': {},
                     'total_amount': 0,
-                    'period': period
+                    'period': period,
+                    'budget': budget_data
                 }
             })
         
@@ -766,6 +778,11 @@ def get_visualization_data():
         filtered_expenses = filter_expenses_by_period(expenses_data, period)
         
         if not filtered_expenses:
+            # Get current budget even if no filtered expenses
+            current_month = datetime.now().strftime('%Y-%m')
+            budget = Budget.query.filter_by(user_id=current_user.id, month=current_month).first()
+            budget_data = budget.to_dict() if budget else None
+            
             return jsonify({
                 'success': True,
                 'data': {
@@ -773,7 +790,8 @@ def get_visualization_data():
                     'trends': [],
                     'category_breakdown': {},
                     'total_amount': 0,
-                    'period': period
+                    'period': period,
+                    'budget': budget_data
                 }
             })
         
@@ -881,6 +899,11 @@ def get_visualization_data():
                     'amount': round(amount, 2)
                 })
         
+        # Get current budget for threshold line
+        current_month = datetime.now().strftime('%Y-%m')
+        budget = Budget.query.filter_by(user_id=current_user.id, month=current_month).first()
+        budget_data = budget.to_dict() if budget else None
+        
         return jsonify({
             'success': True,
             'data': {
@@ -888,7 +911,8 @@ def get_visualization_data():
                 'trends': trends,
                 'category_breakdown': pie_data,
                 'total_amount': round(total_amount, 2),
-                'period': period
+                'period': period,
+                'budget': budget_data
             }
         })
         
@@ -1245,7 +1269,8 @@ def scan_receipt():
            - Healthcare (medical, pharmacy, fitness)
            - Education (books, courses, tuition)
            - Others (anything else)
-        5. items: Array of individual items purchased (if visible and readable)
+        5. items: Array of individual items purchased with their prices (if visible)
+           Format each item as "ItemName - $Price" or just "ItemName" if price not visible
         6. confidence: Your confidence level in the extraction (high/medium/low)
 
         Return ONLY valid JSON in this exact format:
@@ -1254,12 +1279,15 @@ def scan_receipt():
             "amount": "0.00",
             "date": "YYYY-MM-DD",
             "category": "Category Name",
-            "items": ["item1", "item2"],
+            "items": ["item1 - 10.50", "item2 - 5.25"],
             "confidence": "high"
         }
 
-        If you cannot read certain fields, use empty strings for text fields, "0.00" for amount, today's date for date, and "Others" for category.
-        Be accurate and extract exactly what you see on the receipt.
+        IMPORTANT:
+        - Extract ALL visible items from the receipt, not just the first one
+        - If individual item prices are visible, include them with each item
+        - If you cannot read certain fields, use empty strings for text fields, "0.00" for amount, today's date for date, and "Others" for category
+        - Be accurate and extract exactly what you see on the receipt
         """
         
         # Generate content

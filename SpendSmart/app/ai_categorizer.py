@@ -27,15 +27,35 @@ class AICategorizer:
                 print(f"Failed to initialize Gemini API: {e}")
                 self.model = None
         
-        # Define categories and their descriptions
+        # Define categories and their descriptions with comprehensive keywords
         self.categories = {
-            'Food & Dining': ['food', 'restaurant', 'cafe', 'coffee', 'pizza', 'burger', 'lunch', 'dinner', 'breakfast', 'grocery', 'supermarket', 'dining'],
-            'Transportation': ['transport', 'uber', 'taxi', 'bus', 'train', 'metro', 'gas', 'fuel', 'parking', 'toll', 'flight', 'car'],
-            'Shopping': ['shop', 'store', 'mall', 'amazon', 'clothes', 'shoes', 'electronics', 'retail', 'purchase'],
-            'Entertainment': ['entertainment', 'netflix', 'movie', 'cinema', 'theater', 'game', 'gaming', 'sports', 'concert', 'show'],
-            'Bills & Utilities': ['bill', 'utility', 'electric', 'water', 'internet', 'phone', 'rent', 'mortgage', 'insurance'],
-            'Healthcare': ['health', 'medical', 'doctor', 'pharmacy', 'medicine', 'hospital', 'clinic', 'dental'],
-            'Education': ['education', 'school', 'course', 'book', 'tuition', 'learning', 'training'],
+            'Food & Dining': [
+                # General food terms
+                'food', 'restaurant', 'cafe', 'coffee', 'pizza', 'burger', 'lunch', 'dinner', 'breakfast', 
+                'grocery', 'supermarket', 'dining', 'meal', 'snack', 'bakery', 'eatery', 'bistro', 'diner',
+                # Indian food items
+                'biryani', 'curry', 'dal', 'roti', 'naan', 'chapati', 'paratha', 'dosa', 'idli', 'vada',
+                'samosa', 'pakora', 'paneer', 'tikka', 'tandoori', 'masala', 'korma', 'vindaloo', 'sabzi',
+                'rice', 'pulao', 'khichdi', 'chaat', 'pani puri', 'bhel', 'pav bhaji', 'vada pav',
+                # Sweets and desserts
+                'gulab jamun', 'rasgulla', 'jalebi', 'barfi', 'ladoo', 'halwa', 'kheer', 'kulfi',
+                'ice cream', 'cake', 'pastry', 'dessert', 'sweet', 'candy', 'chocolate',
+                # Drinks
+                'tea', 'chai', 'lassi', 'juice', 'shake', 'smoothie', 'soda', 'drink', 'beverage',
+                # Meat and protein
+                'chicken', 'mutton', 'lamb', 'fish', 'prawn', 'egg', 'meat', 'beef', 'pork',
+                # Soups and starters
+                'soup', 'starter', 'appetizer', 'salad', 'sandwich', 'wrap',
+                # Food chains and types
+                'mcdonald', 'kfc', 'domino', 'subway', 'starbucks', 'zomato', 'swiggy', 'uber eats',
+                'chinese', 'italian', 'mexican', 'thai', 'continental', 'fast food', 'street food'
+            ],
+            'Transportation': ['transport', 'uber', 'taxi', 'bus', 'train', 'metro', 'gas', 'fuel', 'parking', 'toll', 'flight', 'car', 'ola', 'auto', 'rickshaw'],
+            'Shopping': ['shop', 'store', 'mall', 'amazon', 'flipkart', 'clothes', 'shoes', 'electronics', 'retail', 'purchase', 'buy', 'myntra'],
+            'Entertainment': ['entertainment', 'netflix', 'movie', 'cinema', 'theater', 'theatre', 'game', 'gaming', 'sports', 'concert', 'show', 'prime', 'hotstar'],
+            'Bills & Utilities': ['bill', 'utility', 'electric', 'electricity', 'water', 'internet', 'phone', 'mobile', 'rent', 'mortgage', 'insurance', 'recharge'],
+            'Healthcare': ['health', 'medical', 'doctor', 'pharmacy', 'medicine', 'hospital', 'clinic', 'dental', 'dentist', 'checkup'],
+            'Education': ['education', 'school', 'college', 'course', 'book', 'tuition', 'learning', 'training', 'class', 'study'],
             'Others': ['other', 'misc', 'miscellaneous']
         }
     
@@ -73,20 +93,24 @@ class AICategorizer:
     
     def _create_categorization_prompt(self, item_name: str, amount: float = None) -> str:
         """Create a prompt for the AI model"""
-        amount_context = f" (Amount: ${amount})" if amount else ""
+        amount_context = f" (Amount: Rs. {amount})" if amount else ""
         
         prompt = f"""
         Categorize this expense item: "{item_name}"{amount_context}
         
         Available categories:
-        - Food & Dining: restaurants, cafes, groceries, food delivery
-        - Transportation: uber, taxi, gas, parking, public transport, flights
-        - Shopping: retail stores, online shopping, clothes, electronics
-        - Entertainment: movies, games, streaming services, concerts, sports
-        - Bills & Utilities: electricity, water, internet, phone, rent, insurance
-        - Healthcare: medical expenses, pharmacy, doctor visits, dental
-        - Education: courses, books, tuition, school supplies
+        - Food & Dining: ALL food items including restaurants, cafes, groceries, food delivery, snacks, desserts, beverages, Indian food (biryani, curry, paneer, tikka, dosa, samosa, gulab jamun, etc.), international cuisines, fast food, street food, sweets, meals, dining out
+        - Transportation: uber, ola, taxi, auto, rickshaw, bus, train, metro, gas, fuel, parking, public transport, flights
+        - Shopping: retail stores, online shopping (Amazon, Flipkart, Myntra), clothes, shoes, electronics, accessories
+        - Entertainment: movies, games, streaming services (Netflix, Prime, Hotstar), concerts, sports events, shows
+        - Bills & Utilities: electricity, water, internet, phone/mobile recharge, rent, insurance
+        - Healthcare: medical expenses, pharmacy, medicines, doctor visits, dental, health checkups
+        - Education: courses, books, tuition, school/college fees, study materials, training
         - Others: anything that doesn't fit the above categories
+        
+        IMPORTANT: 
+        - ANY food item (including Indian dishes like paneer tikka, chicken soup, gulab jamun, biryani, etc.) should be categorized as "Food & Dining"
+        - Be very specific: if it's something people eat or drink, it's "Food & Dining"
         
         Respond with ONLY a JSON object in this exact format:
         {{
@@ -148,10 +172,25 @@ class AICategorizer:
         return self._fallback_categorization("")
     
     def _fallback_categorization(self, item_name: str) -> Dict[str, Any]:
-        """Fallback rule-based categorization"""
-        item_lower = item_name.lower()
+        """Fallback rule-based categorization with better food detection"""
+        item_lower = item_name.lower().strip()
         
+        # Priority check for Food & Dining (check first to avoid misclassification)
+        food_keywords = self.categories.get('Food & Dining', [])
+        for keyword in food_keywords:
+            if keyword in item_lower:
+                return {
+                    'category': 'Food & Dining',
+                    'confidence': 0.85,
+                    'reasoning': f'Food item detected: {keyword}',
+                    'method': 'rule_based'
+                }
+        
+        # Check other categories
         for category, keywords in self.categories.items():
+            if category == 'Food & Dining':
+                continue  # Already checked
+            
             for keyword in keywords:
                 if keyword in item_lower:
                     return {

@@ -1,0 +1,42 @@
+# Coverage configuration file
+
+[run]
+# Source code to measure coverage for
+source = app
+
+# Omit specific files/directories
+omit =
+    */tests/*
+    */test_*.py
+    */__pycache__/*
+    */venv/*
+    */env/*
+    app/__pycache__/*
+    app/static/*
+    app/templates/*
+
+[report]
+# Show lines that are missing coverage
+show_missing = True
+
+# Precision for coverage percentage
+precision = 2
+
+# Exclude lines from coverage
+exclude_lines =
+    # Standard exclusions
+    pragma: no cover
+    def __repr__
+    raise AssertionError
+    raise NotImplementedError
+    if __name__ == .__main__.:
+    if TYPE_CHECKING:
+    @abstract
+    
+[html]
+# HTML report directory
+directory = htmlcov
+
+[xml]
+# XML report file
+output = coverage.xml

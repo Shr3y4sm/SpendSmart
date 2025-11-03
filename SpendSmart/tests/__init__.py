@@ -1,0 +1,3 @@
+"""
+SpendSmart Test Suite
+"""

@@ -1,9 +1,5 @@
 // SpendSmart - Expense Tracker JavaScript
 
-// Global chart instances
-let pieChart = null;
-let trendChart = null;
-
 // Initialize the app when DOM is loaded
 document.addEventListener('DOMContentLoaded', function() {
     // Set today's date as default
@@ -30,7 +26,9 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     
     // Setup chart filters
-    setupChartFilters();
+    if (typeof setupChartFilters === 'function') {
+        setupChartFilters();
+    }
     
     // Load initial insights
     loadInsights('week');
@@ -247,18 +245,33 @@ function updateStatistics(expenses) {
         })
         .reduce((sum, e) => sum + parseFloat(e.amount), 0);
     
+    // Calculate this month's total
+    const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+    const monthTotal = expenses
+        .filter(e => {
+            const expenseDate = new Date(e.date);
+            return expenseDate >= monthStart;
+        })
+        .reduce((sum, e) => sum + parseFloat(e.amount), 0);
+    
     // Calculate total
     const totalExpenses = expenses.reduce((sum, e) => sum + parseFloat(e.amount), 0);
     
     // Update DOM
     document.getElementById('todayTotal').textContent = `Rs. ${todayTotal.toFixed(2)}`;
     document.getElementById('weekTotal').textContent = `Rs. ${weekTotal.toFixed(2)}`;
-    document.getElementById('totalExpenses').textContent = `Rs. ${totalExpenses.toFixed(2)}`;
+    document.getElementById('monthTotal').textContent = `Rs. ${monthTotal.toFixed(2)}`;
+    document.getElementById('totalExpenses').textContent = expenses.length.toString();
 }
 
 // Update category breakdown
 function updateCategoryBreakdown(expenses) {
     const breakdownDiv = document.getElementById('categoryBreakdown');
+    
+    // Check if element exists (may not be on all pages)
+    if (!breakdownDiv) {
+        return;
+    }
     
     if (expenses.length === 0) {
         breakdownDiv.innerHTML = '<p class="text-muted text-center">No expenses added yet</p>';
@@ -476,160 +489,4 @@ function showAISuggestions(suggestions) {
     suggestionsDiv.style.display = 'block';
 }
 
-// Chart Functions
-async function updateVisualizations(period = 'month') {
-    try {
-        console.log('Updating visualizations for period:', period);
-        const response = await fetch(`/api/visualization/data?period=${period}`);
-        const result = await response.json();
-        
-        console.log('Visualization API response:', result);
-        
-        if (result.success) {
-            console.log('Pie chart data:', result.data.pie_chart);
-            console.log('Trends data:', result.data.trends);
-            
-            updatePieChart(result.data.pie_chart);
-            updateTrendChart(result.data.trends, period);
-        } else {
-            console.error('Failed to load visualization data:', result.error);
-        }
-    } catch (error) {
-        console.error('Error loading visualization data:', error);
-    }
-}
-
-function updatePieChart(data) {
-    console.log('Updating pie chart with data:', data);
-    const ctx = document.getElementById('pieChart').getContext('2d');
-    
-    if (pieChart) {
-        pieChart.destroy();
-    }
-    
-    if (data.length === 0) {
-        console.log('No data for pie chart, showing empty message');
-        ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-        ctx.font = '16px Arial';
-        ctx.fillStyle = '#666';
-        ctx.textAlign = 'center';
-        ctx.fillText('No data to display', ctx.canvas.width / 2, ctx.canvas.height / 2);
-        return;
-    }
-    
-    console.log('Creating new pie chart');
-    pieChart = new Chart(ctx, {
-        type: 'doughnut',
-        data: {
-            labels: data.map(item => item.label),
-            datasets: [{
-                data: data.map(item => item.value),
-                backgroundColor: data.map(item => item.color),
-                borderWidth: 2,
-                borderColor: '#fff'
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: {
-                    position: 'bottom',
-                    labels: {
-                        padding: 20,
-                        usePointStyle: true
-                    }
-                },
-                tooltip: {
-                    callbacks: {
-                        label: function(context) {
-                            const item = data[context.dataIndex];
-                            return `${item.label}: Rs. ${item.value} (${item.percentage}%)`;
-                        }
-                    }
-                }
-            }
-        }
-    });
-}
-
-function updateTrendChart(data) {
-    const ctx = document.getElementById('trendChart').getContext('2d');
-    
-    if (trendChart) {
-        trendChart.destroy();
-    }
-    
-    if (data.length === 0) {
-        ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-        ctx.font = '16px Arial';
-        ctx.fillStyle = '#666';
-        ctx.textAlign = 'center';
-        ctx.fillText('No data to display', ctx.canvas.width / 2, ctx.canvas.height / 2);
-        return;
-    }
-    
-    trendChart = new Chart(ctx, {
-        type: 'line',
-        data: {
-            labels: data.map(item => item.label || item.period),
-            datasets: [{
-                label: 'Monthly Spending',
-                data: data.map(item => item.amount),
-                borderColor: '#36A2EB',
-                backgroundColor: 'rgba(54, 162, 235, 0.1)',
-                borderWidth: 3,
-                fill: true,
-                tension: 0.4,
-                pointBackgroundColor: '#36A2EB',
-                pointBorderColor: '#fff',
-                pointBorderWidth: 2,
-                pointRadius: 6
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: {
-                    display: false
-                },
-                title: {
-                    display: true,
-                    text: period === 'week' ? 'Weekly Trends (Last 7 Days)' : 
-                          period === 'month' ? 'Monthly Trends (Last 30 Days)' : 
-                          period === 'year' ? 'Yearly Trends (All Months)' : 'Spending Trends',
-                    font: {
-                        size: 16,
-                        weight: 'bold'
-                    }
-                },
-                tooltip: {
-                    callbacks: {
-                        label: function(context) {
-                            return `Spent: Rs. ${context.parsed.y}`;
-                        }
-                    }
-                }
-            },
-            scales: {
-                y: {
-                    beginAtZero: true,
-                    grid: {
-                        color: 'rgba(0,0,0,0.1)'
-                    },
-                    ticks: {
-                        callback: function(value) {
-                            return 'Rs. ' + value;
-                        }
-                    }
-                },
-                x: {
-                    grid: {
-                        color: 'rgba(0,0,0,0.1)'
-                    }
-                }
-            }
-        }
-    });
-}
+// Chart functions moved to charts.js for consolidation

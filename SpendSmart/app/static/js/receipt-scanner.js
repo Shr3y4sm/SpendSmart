@@ -192,6 +192,24 @@ async function processReceiptWithTesseract() {
     }
 }
 
+// Quick path: Force basic OCR (Tesseract-only) with proper UI state handling
+async function quickProcessReceipt() {
+    if (!currentReceiptImage) {
+        showAlert('No receipt image selected', 'warning');
+        return;
+    }
+    // Show processing spinner explicitly for the quick OCR flow
+    showProcessingState(true);
+    try {
+        await processReceiptWithTesseract();
+    } catch (err) {
+        console.error('Quick OCR failed:', err);
+        showAlert('Basic OCR failed. Try "Extract Text" for the AI-assisted method or use a clearer image.', 'danger');
+    } finally {
+        showProcessingState(false);
+    }
+}
+
 // Parse receipt text to extract relevant information
 function parseReceiptText(text) {
     const lines = text.split('\n').map(line => line.trim()).filter(line => line.length > 0);
@@ -383,10 +401,13 @@ function autoFillExpenseFormAdvanced(data) {
         }
     }, 5000);
     
-    // Show items if multiple were detected
+    // Handle multiple items
     if (data.items && data.items.length > 1) {
         console.log('Multiple items detected:', data.items);
-        // Could show a modal here to add all items in the future
+        showMultipleItemsModal(data);
+    } else if (!itemName && data.items && data.items.length === 1) {
+        // Single item case - already handled above
+        document.getElementById('itemName').value = data.items[0];
     }
 }
 
@@ -427,6 +448,203 @@ function clearReceipt() {
     document.getElementById('date').valueAsDate = new Date();
     
     showAlert('Receipt cleared', 'info');
+}
+
+// Show modal for multiple items selection
+function showMultipleItemsModal(data) {
+    // Create modal HTML
+    const modalHtml = `
+        <div class="modal fade" id="multipleItemsModal" tabindex="-1" aria-labelledby="multipleItemsModalLabel" aria-hidden="true">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="multipleItemsModalLabel">
+                            <i class="bi bi-receipt me-2"></i>
+                            Multiple Items Detected
+                        </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p class="text-muted mb-3">
+                            We found <strong>${data.items.length} items</strong> in this receipt. 
+                            Select which items you want to add as expenses:
+                        </p>
+                        <div class="alert alert-info">
+                            <i class="bi bi-info-circle me-2"></i>
+                            <strong>Receipt Details:</strong><br>
+                            Merchant: ${data.merchant || 'Unknown'}<br>
+                            Date: ${data.date || 'Today'}<br>
+                            Category: ${data.category || 'Others'}<br>
+                            Total: ${data.amount || '0.00'}
+                        </div>
+                        <div id="itemsList" class="list-group">
+                            ${data.items.map((item, index) => {
+                                const parsed = parseItemString(item);
+                                return `
+                                    <label class="list-group-item d-flex justify-content-between align-items-center">
+                                        <div>
+                                            <input class="form-check-input me-2" type="checkbox" value="${index}" checked>
+                                            <strong>${parsed.name}</strong>
+                                            <small class="text-muted ms-2">(${data.category})</small>
+                                        </div>
+                                        ${parsed.price ? `<span class="badge bg-primary">$${parsed.price}</span>` : ''}
+                                    </label>
+                                `;
+                            }).join('')}
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                            <i class="bi bi-x-circle me-1"></i>
+                            Cancel
+                        </button>
+                        <button type="button" class="btn btn-primary" onclick="addSelectedItems()">
+                            <i class="bi bi-check-circle me-1"></i>
+                            Add Selected Items
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Remove existing modal if present
+    const existingModal = document.getElementById('multipleItemsModal');
+    if (existingModal) {
+        existingModal.remove();
+    }
+    
+    // Add modal to body
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+    
+    // Store data for later use
+    window.receiptData = data;
+    
+    // Show modal using Bootstrap
+    const modal = new bootstrap.Modal(document.getElementById('multipleItemsModal'));
+    modal.show();
+}
+
+// Parse item string to extract name and price
+function parseItemString(itemStr) {
+    // Try to extract price from item string (format: "ItemName - $Price" or "ItemName - Price")
+    const priceMatch = itemStr.match(/(.+?)\s*-\s*\$?([\d.]+)/);
+    
+    if (priceMatch) {
+        return {
+            name: priceMatch[1].trim(),
+            price: priceMatch[2]
+        };
+    }
+    
+    // No price found, return just the item name
+    return {
+        name: itemStr.trim(),
+        price: null
+    };
+}
+
+// Add selected items as expenses
+async function addSelectedItems() {
+    const data = window.receiptData;
+    if (!data) return;
+    
+    // Get selected items
+    const checkboxes = document.querySelectorAll('#itemsList input[type="checkbox"]:checked');
+    const selectedIndices = Array.from(checkboxes).map(cb => parseInt(cb.value));
+    
+    if (selectedIndices.length === 0) {
+        showAlert('Please select at least one item', 'warning');
+        return;
+    }
+    
+    // Close modal overlay
+    closeMultipleItemsModal();
+    
+    // Show progress
+    const progressDiv = document.createElement('div');
+    progressDiv.className = 'alert alert-info mt-3';
+    progressDiv.innerHTML = `
+        <div class="d-flex align-items-center">
+            <div class="spinner-border spinner-border-sm me-2" role="status"></div>
+            <span>Adding ${selectedIndices.length} item(s)...</span>
+        </div>
+    `;
+    const previewArea = document.getElementById('receiptPreview');
+    if (previewArea) {
+        previewArea.prepend(progressDiv);
+    } else {
+        document.body.appendChild(progressDiv);
+    }
+    
+    // Add each selected item
+    let successCount = 0;
+    let failCount = 0;
+    
+    for (const index of selectedIndices) {
+        const itemString = data.items[index];
+        const parsedItem = parseItemString(itemString);
+        
+        // Determine amount: use item price if available, otherwise split total if only one item, else 0
+        let amount = '0.00';
+        if (parsedItem.price) {
+            amount = parsedItem.price;
+        } else if (data.amount && selectedIndices.length === 1) {
+            amount = data.amount;
+        }
+        
+        // Prepare expense data
+        const expenseData = {
+            item: parsedItem.name,
+            amount: amount,
+            category: data.category || 'Others',
+            date: data.date || new Date().toISOString().split('T')[0]
+        };
+        
+        try {
+            const response = await fetch('/api/expenses', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(expenseData)
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                successCount++;
+            } else {
+                failCount++;
+            }
+        } catch (error) {
+            console.error('Error adding item:', parsedItem.name, error);
+            failCount++;
+        }
+        
+        // Small delay between requests to avoid overwhelming the server
+        await new Promise(resolve => setTimeout(resolve, 100));
+    }
+    
+    // Remove progress indicator
+    progressDiv.remove();
+    
+    // Show results
+    if (successCount > 0) {
+        showAlert(`Successfully added ${successCount} item(s)!`, 'success');
+        
+        // Refresh the expense list if the function exists
+        if (typeof loadExpenses === 'function') {
+            loadExpenses();
+        }
+        
+        // Clear receipt
+        clearReceipt();
+    }
+    
+    if (failCount > 0) {
+        showAlert(`Failed to add ${failCount} item(s). Please add them manually.`, 'warning');
+    }
 }
 
 // Initialize when DOM is loaded

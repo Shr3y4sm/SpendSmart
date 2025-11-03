@@ -5,164 +5,237 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Login - SpendSmart</title>
     <link
-      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
-      rel="stylesheet"
-    />
-    <link
       rel="stylesheet"
       href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css"
     />
     <link
       rel="stylesheet"
-      href="{{ url_for('static', filename='css/style.css') }}"
-    />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap"
-      rel="stylesheet"
+      href="{{ url_for('static', filename='css/style.css') }}?v=3.0"
     />
     <style>
-      .auth-container {
+      body {
+        background: linear-gradient(
+          135deg,
+          var(--color-accent) 0%,
+          var(--color-accent-dark) 100%
+        );
         min-height: 100vh;
         display: flex;
         align-items: center;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        justify-content: center;
+        padding: var(--space-md);
       }
       .auth-card {
-        background: white;
-        border-radius: 20px;
-        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-        overflow: hidden;
+        background: var(--color-surface);
+        border-radius: var(--radius-md);
+        box-shadow: var(--shadow-xl);
+        max-width: 450px;
+        width: 100%;
       }
       .auth-header {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        background: linear-gradient(
+          135deg,
+          var(--color-accent) 0%,
+          var(--color-accent-dark) 100%
+        );
         color: white;
-        padding: 2rem;
+        padding: var(--space-xl);
         text-align: center;
+        border-radius: var(--radius-md) var(--radius-md) 0 0;
+      }
+      .auth-header i {
+        font-size: 3rem;
+        margin-bottom: var(--space-sm);
+      }
+      .auth-header h2 {
+        margin: var(--space-sm) 0 0 0;
+        font-weight: 600;
+        color: white;
+      }
+      .auth-header p {
+        margin: var(--space-xs) 0 0 0;
+        opacity: 0.9;
+        color: white;
+      }
+      .theme-toggle-auth {
+        position: fixed;
+        top: var(--space-lg);
+        right: var(--space-lg);
+        width: 44px;
+        height: 44px;
+        border-radius: var(--radius-full);
+        background: rgba(255, 255, 255, 0.2);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all var(--transition-fast);
+        color: white;
+        font-size: 1.25rem;
+        z-index: 1000;
+      }
+      .theme-toggle-auth:hover {
+        background: rgba(255, 255, 255, 0.3);
+        transform: rotate(180deg) scale(1.05);
       }
       .auth-body {
-        padding: 2rem;
+        padding: var(--space-xl);
       }
-      .form-control:focus {
-        border-color: #667eea;
-        box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+      .input-group {
+        position: relative;
+        margin-bottom: var(--space-md);
       }
-      .btn-primary {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        border: none;
-        padding: 12px;
+      .input-group i {
+        position: absolute;
+        left: var(--space-md);
+        top: 50%;
+        transform: translateY(-50%);
+        color: var(--color-text-secondary);
+        z-index: 10;
+      }
+      .input-group .form-control {
+        padding-left: 2.5rem;
+      }
+      .checkbox-group {
+        display: flex;
+        align-items: center;
+        gap: var(--space-sm);
+        margin-bottom: var(--space-md);
+      }
+      .checkbox-group input[type="checkbox"] {
+        width: 18px;
+        height: 18px;
+        cursor: pointer;
+      }
+      .auth-footer {
+        text-align: center;
+        margin-top: var(--space-md);
+        color: var(--color-text-secondary);
+      }
+      .auth-footer a {
+        color: var(--color-accent);
+        text-decoration: none;
         font-weight: 600;
       }
-      .btn-primary:hover {
-        background: linear-gradient(135deg, #5568d3 0%, #6a4190 100%);
+      .auth-footer a:hover {
+        text-decoration: underline;
       }
     </style>
   </head>
   <body>
-    <div class="auth-container">
-      <div class="container">
-        <div class="row justify-content-center">
-          <div class="col-md-5">
-            <div class="auth-card">
-              <div class="auth-header">
-                <i
-                  class="bi bi-lightning-charge-fill"
-                  style="font-size: 3rem"
-                ></i>
-                <h2 class="mb-0 mt-2">SpendSmart</h2>
-                <p class="mb-0">Welcome back!</p>
-              </div>
-              <div class="auth-body">
-                {% with messages = get_flashed_messages(with_categories=true) %}
-                {% if messages %} {% for category, message in messages %}
-                <div
-                  class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show"
-                  role="alert"
-                >
-                  {{ message }}
-                  <button
-                    type="button"
-                    class="btn-close"
-                    data-bs-dismiss="alert"
-                  ></button>
-                </div>
-                {% endfor %} {% endif %} {% endwith %}
+    <!-- Theme Toggle -->
+    <button
+      class="theme-toggle-auth"
+      onclick="toggleTheme()"
+      aria-label="Toggle theme"
+    >
+      <i class="bi bi-moon-stars-fill theme-icon"></i>
+    </button>
 
-                <form method="POST" action="{{ url_for('main.login') }}">
-                  <div class="mb-3">
-                    <label for="username" class="form-label fw-medium"
-                      >Username or Email</label
-                    >
-                    <div class="input-group">
-                      <span class="input-group-text"
-                        ><i class="bi bi-person"></i
-                      ></span>
-                      <input
-                        type="text"
-                        class="form-control"
-                        id="username"
-                        name="username"
-                        placeholder="Enter username or email"
-                        required
-                        autofocus
-                      />
-                    </div>
-                  </div>
+    <div class="auth-card">
+      <div class="auth-header">
+        <i class="bi bi-lightning-charge-fill"></i>
+        <h2>SpendSmart</h2>
+        <p>Welcome back!</p>
+      </div>
+      <div class="auth-body">
+        {% with messages = get_flashed_messages(with_categories=true) %} {% if
+        messages %} {% for category, message in messages %}
+        <div
+          class="alert alert-{{ 'danger' if category == 'error' else category }}"
+        >
+          {{ message }}
+        </div>
+        {% endfor %} {% endif %} {% endwith %}
 
-                  <div class="mb-3">
-                    <label for="password" class="form-label fw-medium"
-                      >Password</label
-                    >
-                    <div class="input-group">
-                      <span class="input-group-text"
-                        ><i class="bi bi-lock"></i
-                      ></span>
-                      <input
-                        type="password"
-                        class="form-control"
-                        id="password"
-                        name="password"
-                        placeholder="Enter password"
-                        required
-                      />
-                    </div>
-                  </div>
-
-                  <div class="mb-3 form-check">
-                    <input
-                      type="checkbox"
-                      class="form-check-input"
-                      id="remember"
-                      name="remember"
-                    />
-                    <label class="form-check-label" for="remember"
-                      >Remember me</label
-                    >
-                  </div>
-
-                  <button type="submit" class="btn btn-primary w-100 mb-3">
-                    <i class="bi bi-box-arrow-in-right me-2"></i>Login
-                  </button>
-
-                  <div class="text-center">
-                    <p class="text-muted mb-0">
-                      Don't have an account?
-                      <a
-                        href="{{ url_for('main.register') }}"
-                        class="text-decoration-none fw-bold"
-                        >Sign up</a
-                      >
-                    </p>
-                  </div>
-                </form>
-              </div>
+        <form method="POST" action="{{ url_for('main.login') }}">
+          <div class="form-group">
+            <label for="username">Username or Email</label>
+            <div class="input-group">
+              <i class="bi bi-person"></i>
+              <input
+                type="text"
+                class="form-control"
+                id="username"
+                name="username"
+                placeholder="Enter username or email"
+                required
+                autofocus
+              />
             </div>
           </div>
-        </div>
+
+          <div class="form-group">
+            <label for="password">Password</label>
+            <div class="input-group">
+              <i class="bi bi-lock"></i>
+              <input
+                type="password"
+                class="form-control"
+                id="password"
+                name="password"
+                placeholder="Enter password"
+                required
+              />
+            </div>
+          </div>
+
+          <div class="checkbox-group">
+            <input type="checkbox" id="remember" name="remember" />
+            <label for="remember">Remember me</label>
+          </div>
+
+          <button
+            type="submit"
+            class="btn btn-primary"
+            style="width: 100%; margin-bottom: var(--space-md)"
+          >
+            <i class="bi bi-box-arrow-in-right"></i> Login
+          </button>
+
+          <div class="auth-footer">
+            <p>
+              Don't have an account?
+              <a href="{{ url_for('main.register') }}">Sign up</a>
+            </p>
+          </div>
+        </form>
       </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Theme Toggle Script -->
+    <script>
+      function toggleTheme() {
+        const html = document.documentElement;
+        const currentTheme = html.getAttribute("data-theme");
+        const newTheme = currentTheme === "dark" ? "light" : "dark";
+
+        html.setAttribute("data-theme", newTheme);
+        localStorage.setItem("theme", newTheme);
+
+        const icon = document.querySelector(".theme-icon");
+        if (newTheme === "dark") {
+          icon.classList.remove("bi-moon-stars-fill");
+          icon.classList.add("bi-sun-fill");
+        } else {
+          icon.classList.remove("bi-sun-fill");
+          icon.classList.add("bi-moon-stars-fill");
+        }
+      }
+
+      // Load saved theme (default to dark)
+      (function () {
+        const savedTheme = localStorage.getItem("theme") || "dark";
+        document.documentElement.setAttribute("data-theme", savedTheme);
+
+        const icon = document.querySelector(".theme-icon");
+        if (savedTheme === "dark") {
+          icon.classList.remove("bi-moon-stars-fill");
+          icon.classList.add("bi-sun-fill");
+        }
+      })();
+    </script>
   </body>
 </html>
