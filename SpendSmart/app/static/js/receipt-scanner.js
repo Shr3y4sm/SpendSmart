@@ -593,11 +593,32 @@ async function addSelectedItems() {
             amount = data.amount;
         }
         
+        // Auto-categorize each item using AI
+        let category = data.category || 'Others';
+        try {
+            const catResponse = await fetch('/api/categorize', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ item: parsedItem.name })
+            });
+            
+            const catResult = await catResponse.json();
+            if (catResult.success && catResult.data.category) {
+                category = catResult.data.category;
+                console.log(`AI categorized "${parsedItem.name}" as "${category}" (${Math.round(catResult.data.confidence * 100)}% confidence)`);
+            }
+        } catch (catError) {
+            console.error('Error auto-categorizing item:', catError);
+            // Fall back to default category
+        }
+        
         // Prepare expense data
         const expenseData = {
             item: parsedItem.name,
             amount: amount,
-            category: data.category || 'Others',
+            category: category,
             date: data.date || new Date().toISOString().split('T')[0]
         };
         

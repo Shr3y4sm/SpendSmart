@@ -1,7 +1,8 @@
 // Global chart instances
 let pieChart = null;
 let trendChart = null;
-let currentBudget = null;
+// Use a single global budget object to avoid redeclaration across scripts
+window.currentBudget = window.currentBudget || null;
 
 // Initialize charts on page load
 function setupChartFilters() {
@@ -12,14 +13,6 @@ function setupChartFilters() {
         console.error('[Charts] Chart.js library not found!');
         return;
     }
-    
-    // Setup filter event listeners
-    const filterRadios = document.querySelectorAll('input[name="chartFilter"]');
-    filterRadios.forEach(radio => {
-        radio.addEventListener('change', (e) => {
-            updateVisualizations(e.target.value);
-        });
-    });
     
     // Load initial charts
     updateVisualizations('month');
@@ -41,8 +34,8 @@ async function updateVisualizations(period = 'month') {
         
         console.log('[Charts] Data received:', result.data);
         
-        // Update budget from API response
-        currentBudget = result.data.budget;
+    // Update budget from API response
+    window.currentBudget = result.data.budget;
         
         // Update both charts
         updatePieChart(result.data.pie_chart);
@@ -173,20 +166,38 @@ function updateTrendChart(data, period) {
     }];
     
     // Add budget threshold line if budget is set
-    if (currentBudget && currentBudget.amount) {
-        const budgetAmount = Number(currentBudget.amount);
-        
-        // Calculate daily budget for month/week periods
-        let thresholdValue = budgetAmount;
-        if (period === 'month') {
-            thresholdValue = budgetAmount / 30; // Daily budget for month
-        } else if (period === 'week') {
-            thresholdValue = budgetAmount / 7; // Daily budget for week
+    if (window.currentBudget && window.currentBudget.amount) {
+        const budgetAmount = Number(window.currentBudget.amount);
+
+        // Helper: days in month for a date string 'YYYY-MM-DD' or month key 'YYYY-MM'
+        const daysInMonthFor = (periodKey) => {
+            try {
+                const [y, m, d] = periodKey.split('-');
+                const year = parseInt(y, 10);
+                const month = parseInt(m, 10);
+                if (!isNaN(year) && !isNaN(month)) {
+                    return new Date(year, month, 0).getDate();
+                }
+            } catch (_) {}
+            // Fallback to 30
+            return 30;
+        };
+
+        let thresholdData = [];
+        if (period === 'year') {
+            // Monthly aggregation -> budget line equals monthly budget amount
+            thresholdData = new Array(data.length).fill(budgetAmount);
+        } else {
+            // Daily aggregation (week/month)
+            // Align to the visible window: per-day budget = monthly budget / number of days displayed
+            const daysShown = Math.max(1, data.length);
+            const perDay = budgetAmount / daysShown;
+            thresholdData = new Array(data.length).fill(perDay);
         }
-        
+
         datasets.push({
             label: 'Budget Limit',
-            data: new Array(data.length).fill(thresholdValue),
+            data: thresholdData,
             borderColor: '#ef4444',
             borderWidth: 2,
             borderDash: [10, 5],
@@ -195,8 +206,8 @@ function updateTrendChart(data, period) {
             pointHoverRadius: 0,
             tension: 0
         });
-        
-        console.log('[TrendChart] Budget threshold added:', thresholdValue);
+
+        console.log('[TrendChart] Budget threshold added. Period:', period);
     }
     
     // Create chart

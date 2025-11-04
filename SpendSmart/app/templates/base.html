@@ -17,11 +17,11 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link
       rel="stylesheet"
-      href="{{ url_for('static', filename='css/style.css') }}?v=3.1"
+      href="{{ url_for('static', filename='css/minimal.css') }}?v=4.0"
     />
     {% block head %}{% endblock %}
   </head>
-  <body>
+  <body class="page">
     <!-- Minimal Navigation -->
     <nav class="navbar">
       <div class="navbar-container">
@@ -29,75 +29,43 @@
           class="navbar-brand"
           href="{{ url_for('main.dashboard') if current_user.is_authenticated else url_for('main.login') }}"
         >
-          <div class="brand-icon">
-            <i class="bi bi-lightning-charge-fill"></i>
-          </div>
-          <span>SpendSmart</span>
+          SpendSmart
         </a>
 
         {% if current_user.is_authenticated %}
         <ul class="navbar-nav">
           <li>
             <a class="nav-link active" href="{{ url_for('main.dashboard') }}">
-              <i class="bi bi-speedometer2"></i>
               Dashboard
             </a>
           </li>
           <li>
-            <button
-              class="theme-toggle"
-              onclick="toggleTheme()"
-              aria-label="Toggle theme"
-            >
-              <i class="bi bi-moon-stars-fill theme-icon"></i>
-            </button>
+            <a class="nav-link" href="{{ url_for('main.receipt_page') }}">
+              Receipts
+            </a>
           </li>
-          <li class="user-menu">
-            <div class="dropdown">
-              <div
-                class="user-avatar"
-                id="userMenuBtn"
-                onclick="toggleDropdown()"
+          <li class="dropdown">
+            <button class="nav-link dropdown-toggle" id="profileDropdown">
+              {{ current_user.username }}
+            </button>
+            <div class="dropdown-menu" id="profileMenu">
+              <a class="dropdown-item" href="{{ url_for('main.profile') }}"
+                >Profile</a
               >
-                {{ current_user.username[0].upper() }}
-              </div>
-              <div class="dropdown-menu" id="userDropdown">
-                <a class="dropdown-item" href="{{ url_for('main.profile') }}">
-                  <i class="bi bi-person"></i>
-                  Profile
-                </a>
-                <div class="dropdown-divider"></div>
-                <a
-                  class="dropdown-item logout-link"
-                  href="{{ url_for('main.logout') }}"
-                >
-                  <i class="bi bi-box-arrow-right"></i>
-                  Logout
-                </a>
-              </div>
+              <a class="dropdown-item" href="{{ url_for('main.logout') }}"
+                >Logout</a
+              >
             </div>
           </li>
         </ul>
         {% else %}
         <ul class="navbar-nav">
           <li>
-            <button
-              class="theme-toggle"
-              onclick="toggleTheme()"
-              aria-label="Toggle theme"
-            >
-              <i class="bi bi-moon-stars-fill theme-icon"></i>
-            </button>
-          </li>
-          <li>
-            <a class="nav-link" href="{{ url_for('main.login') }}">
-              <i class="bi bi-box-arrow-in-right"></i>
-              Login
-            </a>
+            <a class="nav-link" href="{{ url_for('main.login') }}"> Login </a>
           </li>
           <li>
             <a class="btn btn-primary" href="{{ url_for('main.register') }}">
-              Register
+              Get Started
             </a>
           </li>
         </ul>
@@ -106,85 +74,31 @@
     </nav>
 
     <!-- Main Content -->
-    <main class="container">{% block content %}{% endblock %}</main>
-
-    <!-- Minimal Footer -->
-    <footer>
-      <p>
-        &copy; 2025 SpendSmart - Intelligent Expense Tracker &middot; Powered by
-        AI
-      </p>
-    </footer>
+    <main class="main-content">
+      <div class="container">{% block content %}{% endblock %}</div>
+    </main>
 
     <!-- Dropdown Toggle Script -->
     <script>
-      function toggleDropdown() {
-        const dropdown = document.querySelector(".user-menu .dropdown");
-        dropdown.classList.toggle("show");
-      }
+      document.addEventListener("DOMContentLoaded", function () {
+        const dropdown = document.getElementById("profileDropdown");
+        const menu = document.getElementById("profileMenu");
 
-      // Close dropdown when clicking outside
-      document.addEventListener("click", function (event) {
-        const dropdown = document.querySelector(".user-menu .dropdown");
-        const userBtn = document.getElementById("userMenuBtn");
-        if (
-          dropdown &&
-          !dropdown.contains(event.target) &&
-          event.target !== userBtn
-        ) {
-          dropdown.classList.remove("show");
-        }
+        if (dropdown && menu) {
+          // Toggle dropdown on click
+          dropdown.addEventListener("click", function (e) {
+            e.stopPropagation();
+            menu.classList.toggle("show");
+          });
 
-        // Close modals when clicking on overlay
-        if (event.target.classList.contains("modal-overlay")) {
-          event.target.style.display = "none";
+          // Close dropdown when clicking outside
+          document.addEventListener("click", function (e) {
+            if (!dropdown.contains(e.target) && !menu.contains(e.target)) {
+              menu.classList.remove("show");
+            }
+          });
         }
       });
-
-      // Helper function to close edit modal
-      function closeEditModal() {
-        const modal = document.getElementById("editExpenseModal");
-        if (modal) {
-          modal.style.display = "none";
-        }
-      }
-
-      // Theme Toggle Function
-      function toggleTheme() {
-        const html = document.documentElement;
-        const currentTheme = html.getAttribute("data-theme");
-        const newTheme = currentTheme === "dark" ? "light" : "dark";
-
-        html.setAttribute("data-theme", newTheme);
-        localStorage.setItem("theme", newTheme);
-
-        // Update icon
-        const icons = document.querySelectorAll(".theme-icon");
-        icons.forEach((icon) => {
-          if (newTheme === "dark") {
-            icon.classList.remove("bi-moon-stars-fill");
-            icon.classList.add("bi-sun-fill");
-          } else {
-            icon.classList.remove("bi-sun-fill");
-            icon.classList.add("bi-moon-stars-fill");
-          }
-        });
-      }
-
-      // Load saved theme on page load (default to dark like SubTrackr)
-      (function () {
-        const savedTheme = localStorage.getItem("theme") || "dark";
-        document.documentElement.setAttribute("data-theme", savedTheme);
-
-        // Update icon based on saved theme
-        const icons = document.querySelectorAll(".theme-icon");
-        icons.forEach((icon) => {
-          if (savedTheme === "dark") {
-            icon.classList.remove("bi-moon-stars-fill");
-            icon.classList.add("bi-sun-fill");
-          }
-        });
-      })();
     </script>
 
     {% block scripts %}{% endblock %}

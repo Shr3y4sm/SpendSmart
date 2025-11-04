@@ -3,6 +3,25 @@ let currentReceiptImage = null;
 let parsedReceiptData = null; // { merchant, amount, date, items[] }
 let lastOcrRawText = '';
 
+// Local alert fallback if global showAlert is not available
+if (typeof window.showAlert !== 'function') {
+    window.showAlert = function(message, type) {
+        const container = document.getElementById('alertContainer') || document.body;
+        const alertDiv = document.createElement('div');
+        alertDiv.className = `alert alert-${type}`;
+        alertDiv.textContent = message;
+        alertDiv.style.marginBottom = '1rem';
+        alertDiv.style.transition = 'opacity 0.15s ease';
+        container.appendChild(alertDiv);
+        setTimeout(() => {
+            alertDiv.style.opacity = '0';
+            setTimeout(() => {
+                if (alertDiv.parentNode) alertDiv.remove();
+            }, 150);
+        }, 3000);
+    }
+}
+
 function initReceiptOCR() {
     const fileInput = document.getElementById('receiptUpload');
     if (!fileInput) return;
@@ -173,7 +192,11 @@ function buildParsedData(text) {
     const itemLines = lines.filter(l => /\d+[\d,]*\.?\d{0,2}$/.test(l) || /-\s*\$?\d+[\d,]*\.\d{2}/.test(l));
     for (const l of itemLines) {
         const lower = l.toLowerCase();
-        if (/(grand\s*total|total|subtotal|tax|cgst|sgst|igst|round\s*off)/.test(lower)) continue;
+        // Skip totals and explicit non-item lines
+        if (/(grand\s*total|total\s*amount|total\b|subtotal|round\s*off)/.test(lower)) continue;
+        // Skip quantity-only lines (e.g., "Q 2.00 @ 60.00")
+        if (lower.includes('@') || /\bqty\b/.test(lower) || /^\s*q[\s:]/i.test(l)) continue;
+        // Skip tax-only lines here? Keep taxes as selectable items; categorization will map them to Food & Dining later
         const parsed = parseItemLineAdvanced(l, amount);
         if (parsed.name) items.push(parsed);
     }
@@ -305,26 +328,99 @@ async function addSelectedItemsFromPage() {
     const card = document.getElementById('detectedItemsCard');
     card.parentNode.insertBefore(progressDiv, card.nextSibling);
 
+    // Compute per-item amounts when some items lack prices
+    const selectedItems = selectedIndices.map(i => parsedReceiptData.items[i]);
+    const knownSum = selectedItems
+        .map(it => parseFloat(toFixedAmount(it.price)))
+        .filter(n => !isNaN(n) && n > 0)
+        .reduce((a, b) => a + b, 0);
+    const totalNum = parseFloat(toFixedAmount(parsedReceiptData.amount));
+    const missingIndices = selectedIndices.filter(i => {
+        const p = parseFloat(toFixedAmount(parsedReceiptData.items[i].price));
+        return isNaN(p) || p === 0;
+    });
+    let splitAmount = 0;
+    if (missingIndices.length > 0 && !isNaN(totalNum) && totalNum > 0 && totalNum >= knownSum) {
+        const remaining = Math.max(totalNum - knownSum, 0);
+        splitAmount = remaining > 0 ? parseFloat((remaining / missingIndices.length).toFixed(2)) : 0;
+    }
+
     let success = 0, fail = 0;
+    const failureReasons = [];
     for (const idx of selectedIndices) {
         const it = parsedReceiptData.items[idx];
+        
+        // Determine amount: prefer item price; otherwise split remaining total; else skip if still zero
+        let amountStr = toFixedAmount(it.price);
+        let amountNum = parseFloat(amountStr);
+        if (isNaN(amountNum) || amountNum <= 0) {
+            if (splitAmount > 0) {
+                amountNum = splitAmount;
+                amountStr = amountNum.toFixed(2);
+            } else {
+                // No price and no total to split — cannot add this item reliably
+                fail++;
+                failureReasons.push(`${it.name}: missing price and no total to split`);
+                continue;
+            }
+        }
+
+        // Category decision: map common charges/taxes for food receipts directly to Food & Dining; else use AI
+        let category = 'Others';
+        const nameLower = String(it.name || '').toLowerCase();
+        const foodChargeHints = ['delivery charge', 'delivery', 'packing', 'packaging', 'service charge', 'container charge', 'convenience fee', 'fees', 'charges', 'sgst', 'cgst', 'igst', 'vat', 'tax'];
+        const isFoodCharge = foodChargeHints.some(h => nameLower.includes(h));
+        if (isFoodCharge) {
+            category = 'Food & Dining';
+        } else {
+            try {
+                const catResp = await fetch('/api/categorize', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ item: it.name, amount: amountNum })
+                });
+                const catRes = await catResp.json();
+                if (catRes.success && catRes.data && catRes.data.category) {
+                    category = catRes.data.category;
+                    const conf = catRes.data.confidence != null ? ` (${Math.round(catRes.data.confidence * 100)}% confidence)` : '';
+                    console.log(`AI categorized \"${it.name}\" as \"${category}\"${conf}`);
+                }
+            } catch (catErr) {
+                console.error('Error auto-categorizing item:', catErr);
+            }
+        }
+
         const expenseData = {
             item: it.name,
-            amount: toFixedAmount(it.price || parsedReceiptData.amount || '0.00'),
-            category: 'Others',
+            amount: amountStr,
+            category: category,
             date: parsedReceiptData.date
         };
         try {
             const resp = await fetch('/api/expenses', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(expenseData) });
             const res = await resp.json();
-            if (res.success) success++; else fail++;
+            if (res.success) {
+                success++;
+            } else {
+                fail++;
+                if (res.details && Array.isArray(res.details)) {
+                    failureReasons.push(`${it.name}: ${res.details.join('; ')}`);
+                } else if (res.error) {
+                    failureReasons.push(`${it.name}: ${res.error}`);
+                } else {
+                    failureReasons.push(`${it.name}: failed to add`);
+                }
+            }
         } catch (e) { console.error('Add failed:', e); fail++; }
         await new Promise(r => setTimeout(r, 100));
     }
 
     progressDiv.remove();
     if (success) showAlert(`Successfully added ${success} item(s).`, 'success');
-    if (fail) showAlert(`Failed to add ${fail} item(s). Please add manually.`, 'warning');
+    if (fail) {
+        const uniqueReasons = Array.from(new Set(failureReasons));
+        showAlert(`Failed to add ${fail} item(s). ${uniqueReasons.length ? 'Details: ' + uniqueReasons.join(' | ') : 'Please add manually.'}`, 'warning');
+    }
     if (success && typeof loadExpenses === 'function') loadExpenses();
 }
 

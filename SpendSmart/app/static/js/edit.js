@@ -10,26 +10,34 @@ function editExpense(id) {
     }
     
     // Populate the edit form
-    document.getElementById('editExpenseId').value = expense.id;
-    document.getElementById('editItemName').value = expense.item;
-    document.getElementById('editAmount').value = expense.amount;
-    document.getElementById('editCategory').value = expense.category;
-    document.getElementById('editDate').value = expense.date;
+    const idEl = document.getElementById('editExpenseId');
+    const itemEl = document.getElementById('editItemName');
+    const amountEl = document.getElementById('editAmount');
+    const categoryEl = document.getElementById('editCategory');
+    const dateEl = document.getElementById('editDate');
+    if (!idEl || !itemEl || !amountEl || !categoryEl || !dateEl) {
+        showAlert('Edit form not found on this page', 'danger');
+        return;
+    }
+    idEl.value = expense.id;
+    itemEl.value = expense.item;
+    amountEl.value = expense.amount;
+    categoryEl.value = expense.category;
+    dateEl.value = expense.date;
     
-    // Show the modal
-    const modal = new bootstrap.Modal(document.getElementById('editExpenseModal'));
-    modal.show();
+    // Show the dialog (minimal, no Bootstrap)
+    openEditDialog();
     
-    // Setup AI categorization for edit form
+    // Setup AI categorization for edit form (optional)
     setupEditAICategorization();
 }
 
 function setupEditAICategorization() {
-    // Setup AI categorization button
-    document.getElementById('editAiCategorizeBtn').onclick = handleEditAICategorization;
-    
-    // Setup auto-categorization on blur
-    document.getElementById('editItemName').onblur = handleEditAutoCategorization;
+    // Optional AI elements might not exist in minimal dialog
+    const aiBtn = document.getElementById('editAiCategorizeBtn');
+    const itemEl = document.getElementById('editItemName');
+    if (aiBtn) aiBtn.onclick = handleEditAICategorization;
+    if (itemEl) itemEl.onblur = handleEditAutoCategorization;
 }
 
 async function handleEditAICategorization() {
@@ -188,9 +196,8 @@ async function saveEditExpense() {
         if (result.success) {
             showAlert('Expense updated successfully!', 'success');
             
-            // Close modal
-            const modal = bootstrap.Modal.getInstance(document.getElementById('editExpenseModal'));
-            modal.hide();
+            // Close dialog
+            closeEditDialog();
             
             // Refresh the expenses list
             loadExpenses();

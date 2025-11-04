@@ -12,26 +12,41 @@ document.addEventListener('DOMContentLoaded', function() {
     loadExpenses();
     
     // Setup form submit handler
-    document.getElementById('expenseForm').addEventListener('submit', handleFormSubmit);
+    const expenseForm = document.getElementById('expenseForm');
+    if (expenseForm) {
+        expenseForm.addEventListener('submit', handleFormSubmit);
+    }
     
-    // Setup AI categorization
-    document.getElementById('aiCategorizeBtn').addEventListener('click', handleAICategorization);
-    
-    // Setup item name input for auto-categorization
-    document.getElementById('itemName').addEventListener('blur', handleAutoCategorization);
+    // Setup item name input for auto-categorization (built-in)
+    const itemNameInput = document.getElementById('itemName');
+    if (itemNameInput && typeof handleAutoCategorization === 'function') {
+        itemNameInput.addEventListener('blur', handleAutoCategorization);
+        // Also trigger on Enter key
+        itemNameInput.addEventListener('keyup', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                handleAutoCategorization();
+            }
+        });
+    }
     
     // Setup insights period selector
-    document.querySelectorAll('input[name="insightPeriod"]').forEach(radio => {
-        radio.addEventListener('change', handleInsightPeriodChange);
-    });
+    const insightRadios = document.querySelectorAll('input[name="insightPeriod"]');
+    if (insightRadios.length > 0 && typeof handleInsightPeriodChange === 'function') {
+        insightRadios.forEach(radio => {
+            radio.addEventListener('change', handleInsightPeriodChange);
+        });
+    }
     
     // Setup chart filters
     if (typeof setupChartFilters === 'function') {
         setupChartFilters();
     }
     
-    // Load initial insights
-    loadInsights('week');
+    // Load initial insights if function exists
+    if (typeof loadInsights === 'function') {
+        loadInsights('week');
+    }
     
     // Initialize budget management
     if (typeof initBudgetManagement === 'function') {
@@ -96,6 +111,8 @@ async function handleFormSubmit(e) {
     };
     
     try {
+        console.log('Adding expense:', expense);
+        
         // Add expense via API
         const response = await fetch('/api/expenses', {
             method: 'POST',
@@ -105,28 +122,40 @@ async function handleFormSubmit(e) {
             body: JSON.stringify(expense)
         });
         
-        if (response.ok) {
-            const result = await response.json();
-            if (result.success) {
-                showAlert('Expense added successfully!', 'success');
-                document.getElementById('expenseForm').reset();
-                document.getElementById('date').valueAsDate = new Date();
-                
-                    // Hide AI suggestions if visible
-                    document.getElementById('aiSuggestions').style.display = 'none';
-                    
-                    loadExpenses();
-                    loadBudgetStatus();
-            } else {
-                showAlert(result.error || 'Failed to add expense', 'danger');
+        console.log('Add expense response status:', response.status);
+        
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error('Add expense failed:', response.status, errorText);
+            showAlert('Failed to add expense', 'danger');
+            return;
+        }
+        
+        const result = await response.json();
+        console.log('Add expense result:', result);
+        
+        if (result.success) {
+            showAlert('Expense added successfully!', 'success');
+            
+            // Reset form
+            document.getElementById('expenseForm').reset();
+            document.getElementById('date').valueAsDate = new Date();
+            
+            // Hide AI suggestions if visible
+            const aiSuggestions = document.getElementById('aiSuggestions');
+            if (aiSuggestions) {
+                aiSuggestions.style.display = 'none';
             }
+            
+            // Reload expenses
+            await loadExpenses();
         } else {
-            const errorResult = await response.json();
-            showAlert(errorResult.error || 'Failed to add expense', 'danger');
+            console.error('Add expense unsuccessful:', result);
+            showAlert(result.error || 'Failed to add expense', 'danger');
         }
     } catch (error) {
-        console.error('Error:', error);
-        showAlert('An error occurred', 'danger');
+        console.error('Error adding expense:', error);
+        showAlert('Error occurred while adding expense', 'danger');
     }
 }
 
@@ -145,9 +174,21 @@ async function loadExpenses() {
         displayExpenses(expenses);
         updateStatistics(expenses);
         updateCategoryBreakdown(expenses);
-        updateVisualizations('month');
-        updateInsights();
-        loadBudgetStatus();
+        
+        // Update visualizations if function exists
+        if (typeof updateVisualizations === 'function') {
+            updateVisualizations('month');
+        }
+        
+        // Update insights if function exists
+        if (typeof updateInsights === 'function') {
+            updateInsights();
+        }
+        
+        // Load budget status if function exists
+        if (typeof loadBudgetStatus === 'function') {
+            loadBudgetStatus();
+        }
     } catch (error) {
         console.error('Error loading expenses:', error);
         // Fallback to localStorage
@@ -160,61 +201,33 @@ async function loadExpenses() {
 
 // Display expenses in table
 function displayExpenses(expenses) {
-    const tbody = document.getElementById('expenseTableBody');
-    const expenseCount = document.getElementById('expenseCount');
+    const tbody = document.getElementById('expensesTableBody');
+    
+    if (!tbody) return;
     
     if (expenses.length === 0) {
         tbody.innerHTML = `
             <tr>
-                <td colspan="5" class="text-center text-muted py-4">
-                    <div class="empty-state">
-                        <i class="bi bi-receipt text-muted"></i>
-                        <p class="text-muted">No expenses yet. Add your first expense above!</p>
-                    </div>
+                <td colspan="5" class="text-center text-muted" style="padding: 2rem;">
+                    No expenses yet
                 </td>
             </tr>
         `;
-        expenseCount.textContent = '0 expenses';
         return;
     }
     
     // Sort expenses by date (newest first)
     expenses.sort((a, b) => new Date(b.date) - new Date(a.date));
     
-    expenseCount.textContent = `${expenses.length} expense${expenses.length !== 1 ? 's' : ''}`;
-    
     tbody.innerHTML = expenses.map(expense => `
         <tr>
+            <td>${formatDate(expense.date)}</td>
+            <td style="font-weight: 600;">${expense.item}</td>
+            <td style="color: var(--color-text-light);">${expense.category}</td>
+            <td style="font-weight: 700;">₹${parseFloat(expense.amount).toFixed(2)}</td>
             <td>
-                <div class="d-flex align-items-center">
-                    <div class="date-badge me-2">
-                        <small class="text-muted">${formatDate(expense.date)}</small>
-                    </div>
-                </div>
-            </td>
-            <td>
-                <div class="d-flex align-items-center">
-                    <div class="item-icon me-2">
-                        <i class="bi bi-receipt text-primary"></i>
-                    </div>
-                    <span class="fw-medium">${expense.item}</span>
-                </div>
-            </td>
-            <td>
-                <span class="badge bg-light text-dark border">${expense.category}</span>
-            </td>
-            <td class="text-end">
-                <span class="fw-bold text-success">Rs. ${parseFloat(expense.amount).toFixed(2)}</span>
-            </td>
-            <td class="text-center">
-                <div class="btn-group" role="group">
-                    <button class="btn btn-sm btn-outline-primary" onclick="editExpense(${expense.id})" title="Edit">
-                        <i class="bi bi-pencil"></i>
-                    </button>
-                    <button class="btn btn-sm btn-outline-danger" onclick="deleteExpense(${expense.id})" title="Delete">
-                        <i class="bi bi-trash"></i>
-                    </button>
-                </div>
+                <button class="btn btn-ghost" onclick="editExpense(${expense.id})" style="padding: 0.25rem 0.5rem; font-size: 0.875rem;">Edit</button>
+                <button class="btn btn-ghost" onclick="deleteExpense(${expense.id})" style="padding: 0.25rem 0.5rem; font-size: 0.875rem; color: var(--color-danger);">Delete</button>
             </td>
         </tr>
     `).join('');
@@ -258,10 +271,15 @@ function updateStatistics(expenses) {
     const totalExpenses = expenses.reduce((sum, e) => sum + parseFloat(e.amount), 0);
     
     // Update DOM
-    document.getElementById('todayTotal').textContent = `Rs. ${todayTotal.toFixed(2)}`;
-    document.getElementById('weekTotal').textContent = `Rs. ${weekTotal.toFixed(2)}`;
-    document.getElementById('monthTotal').textContent = `Rs. ${monthTotal.toFixed(2)}`;
-    document.getElementById('totalExpenses').textContent = expenses.length.toString();
+    const todayEl = document.getElementById('todayTotal');
+    const weekEl = document.getElementById('weekTotal');
+    const monthEl = document.getElementById('monthTotal');
+    const totalEl = document.getElementById('totalExpenses');
+    
+    if (todayEl) todayEl.textContent = `₹${todayTotal.toFixed(0)}`;
+    if (weekEl) weekEl.textContent = `₹${weekTotal.toFixed(0)}`;
+    if (monthEl) monthEl.textContent = `₹${monthTotal.toFixed(0)}`;
+    if (totalEl) totalEl.textContent = expenses.length.toString();
 }
 
 // Update category breakdown
@@ -322,26 +340,37 @@ async function deleteExpense(id) {
     }
     
     try {
+        console.log('Deleting expense:', id);
         const response = await fetch(`/api/expenses/${id}`, {
-            method: 'DELETE'
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json'
+            }
         });
         
-        if (response.ok) {
-            const result = await response.json();
+        console.log('Delete response status:', response.status);
+        
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error('Delete failed:', response.status, errorText);
+            showAlert('Failed to delete expense', 'danger');
+            return;
+        }
+        
+        const result = await response.json();
+        console.log('Delete result:', result);
+        
         if (result.success) {
             showAlert('Expense deleted successfully!', 'success');
-            loadExpenses();
-            loadBudgetStatus();
+            // Reload expenses to update the table
+            await loadExpenses();
         } else {
+            console.error('Delete unsuccessful:', result);
             showAlert(result.error || 'Failed to delete expense', 'danger');
         }
-        } else {
-            const errorResult = await response.json();
-            showAlert(errorResult.error || 'Failed to delete expense', 'danger');
-        }
     } catch (error) {
-        console.error('Error:', error);
-        showAlert('An error occurred', 'danger');
+        console.error('Error deleting expense:', error);
+        showAlert('Error occurred while deleting expense', 'danger');
     }
 }
 
@@ -354,88 +383,45 @@ function formatDate(dateString) {
 
 // Show alert message
 function showAlert(message, type) {
+    const container = document.getElementById('alertContainer') || document.body;
     const alertDiv = document.createElement('div');
-    alertDiv.className = `alert alert-${type} alert-dismissible fade show position-fixed top-0 start-50 translate-middle-x mt-3`;
-    alertDiv.style.zIndex = '9999';
-    alertDiv.innerHTML = `
-        ${message}
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-    `;
+    alertDiv.className = `alert alert-${type}`;
+    alertDiv.textContent = message;
+    alertDiv.style.marginBottom = '1rem';
+    alertDiv.style.transition = 'opacity 0.15s ease';
     
-    document.body.appendChild(alertDiv);
+    container.appendChild(alertDiv);
     
     setTimeout(() => {
-        alertDiv.remove();
+        alertDiv.style.opacity = '0';
+        setTimeout(() => {
+            if (alertDiv.parentNode) {
+                alertDiv.remove();
+            }
+        }, 150);
     }, 3000);
 }
 
-// AI Categorization Functions
-async function handleAICategorization() {
-    const itemName = document.getElementById('itemName').value.trim();
-    const amount = document.getElementById('amount').value;
-    
-    if (!itemName) {
-        showAlert('Please enter an item name first', 'warning');
-        return;
-    }
-    
-    // Show loading state
-    const aiIcon = document.getElementById('aiIcon');
-    const aiLoading = document.getElementById('aiLoading');
-    const aiBtn = document.getElementById('aiCategorizeBtn');
-    
-    aiIcon.classList.add('d-none');
-    aiLoading.classList.remove('d-none');
-    aiBtn.disabled = true;
-    
-    try {
-        const response = await fetch('/api/categorize', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                item: itemName,
-                amount: amount ? parseFloat(amount) : null
-            })
-        });
-        
-        const result = await response.json();
-        
-        if (result.success) {
-            const category = result.data.category;
-            document.getElementById('category').value = category;
-            
-            // Show AI reasoning
-            showAlert(`AI categorized as: ${category} (${Math.round(result.data.confidence * 100)}% confidence)`, 'info');
-        } else {
-            showAlert('AI categorization not available. Please set GEMINI_API_KEY.', 'warning');
-        }
-    } catch (error) {
-        console.error('AI categorization error:', error);
-        showAlert('AI categorization failed', 'danger');
-    } finally {
-        // Hide loading state
-        aiIcon.classList.remove('d-none');
-        aiLoading.classList.add('d-none');
-        aiBtn.disabled = false;
-    }
-}
-
+// Auto-Categorization Function (Built-in)
 async function handleAutoCategorization() {
-    const itemName = document.getElementById('itemName').value.trim();
-    const category = document.getElementById('category').value;
+    const itemNameInput = document.getElementById('itemName');
+    const categorySelect = document.getElementById('category');
+    const aiHint = document.getElementById('aiHint');
+    
+    if (!itemNameInput || !categorySelect) return;
+    
+    const itemName = itemNameInput.value.trim();
+    const category = categorySelect.value;
     
     // Only auto-categorize if no category is selected and item name is provided
-    if (!category && itemName) {
-        // Show loading state
-        const aiIcon = document.getElementById('aiIcon');
-        const aiLoading = document.getElementById('aiLoading');
-        const aiBtn = document.getElementById('aiCategorizeBtn');
+    if (!category && itemName && itemName.length >= 3) {
+        console.log('Auto-categorizing item:', itemName);
         
-        aiIcon.classList.add('d-none');
-        aiLoading.classList.remove('d-none');
-        aiBtn.disabled = true;
+        // Show loading hint
+        if (aiHint) {
+            aiHint.textContent = 'AI analyzing...';
+            aiHint.style.display = 'inline';
+        }
         
         try {
             const response = await fetch('/api/categorize', {
@@ -449,19 +435,23 @@ async function handleAutoCategorization() {
             const result = await response.json();
             
             if (result.success) {
-                const category = result.data.category;
-                document.getElementById('category').value = category;
+                const suggestedCategory = result.data.category;
+                categorySelect.value = suggestedCategory;
                 
-                // Show AI reasoning
-                showAlert(`AI auto-categorized as: ${category} (${Math.round(result.data.confidence * 100)}% confidence)`, 'info');
+                // Show AI hint
+                if (aiHint) {
+                    aiHint.textContent = `✓ AI suggested (${Math.round(result.data.confidence * 100)}% confidence)`;
+                    aiHint.style.display = 'inline';
+                    aiHint.style.color = 'var(--color-accent)';
+                }
+                
+                console.log(`AI categorized as: ${suggestedCategory} (${Math.round(result.data.confidence * 100)}% confidence)`);
             }
         } catch (error) {
             console.error('Auto-categorization error:', error);
-        } finally {
-            // Hide loading state
-            aiIcon.classList.remove('d-none');
-            aiLoading.classList.add('d-none');
-            aiBtn.disabled = false;
+            if (aiHint) {
+                aiHint.style.display = 'none';
+            }
         }
     }
 }

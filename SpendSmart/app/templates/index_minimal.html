@@ -58,15 +58,7 @@
     </div>
 
     <div class="form-group">
-      <label for="category" class="form-label">
-        Category
-        <small
-          class="text-muted"
-          id="aiHint"
-          style="display: none; margin-left: 0.5rem"
-          >AI suggested</small
-        >
-      </label>
+      <label for="category" class="form-label">Category</label>
       <select class="form-select" id="category" required>
         <option value="">Select category</option>
         <option value="Food & Dining">Food & Dining</option>
@@ -87,6 +79,9 @@
 
     <div style="grid-column: span 4; display: flex; gap: 1rem">
       <button type="submit" class="btn btn-primary">Add Expense</button>
+      <button type="button" class="btn btn-secondary" id="aiCategorizeBtn">
+        Auto-categorize
+      </button>
       <a href="{{ url_for('main.receipt_page') }}" class="btn btn-secondary"
         >Upload Receipt</a
       >
@@ -141,46 +136,24 @@
   </div>
 </div>
 
-<!-- AI Insights Section -->
-<div class="card">
-  <div
-    class="card-header"
-    style="display: flex; justify-content: space-between; align-items: center"
-  >
-    <h3 class="card-title">AI Financial Insights</h3>
-    <div class="filter-group" style="margin: 0">
-      <button class="filter-btn active" data-insight-period="week">Week</button>
-      <button class="filter-btn" data-insight-period="month">Month</button>
-      <button class="filter-btn" data-insight-period="all">All Time</button>
-    </div>
-  </div>
-  <div id="insightsContent">
-    <p class="text-muted text-center" style="padding: 2rem">
-      Generating AI insights...
-    </p>
-  </div>
-</div>
-
 <!-- Chart Filters -->
 <div class="card">
   <div class="card-header">
     <h3 class="card-title">Spending Trends</h3>
   </div>
 
-  <div style="padding: var(--space-3)">
-    <div class="filter-group" style="margin-bottom: var(--space-4)">
-      <button class="filter-btn" data-period="week">Week</button>
-      <button class="filter-btn active" data-period="month">Month</button>
-      <button class="filter-btn" data-period="year">Year</button>
-    </div>
+  <div class="filter-group mb-4">
+    <button class="filter-btn" data-period="week">Week</button>
+    <button class="filter-btn active" data-period="month">Month</button>
+    <button class="filter-btn" data-period="year">Year</button>
+  </div>
 
-    <div class="grid grid-2">
-      <div>
-        <canvas id="pieChart" style="max-height: 300px"></canvas>
-      </div>
-      <div>
-        <canvas id="trendChart" style="max-height: 300px"></canvas>
-      </div>
+  <div class="grid grid-2">
+    <div>
+      <canvas id="pieChart" style="max-height: 300px"></canvas>
+    </div>
+    <div>
+      <canvas id="trendChart" style="max-height: 300px"></canvas>
     </div>
   </div>
 </div>
@@ -213,85 +186,6 @@
   </div>
 </div>
 
-<!-- Minimal Edit Dialog -->
-<div
-  id="editOverlay"
-  style="
-    display: none;
-    position: fixed;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.35);
-    z-index: 1001;
-  "
->
-  <div
-    style="
-      max-width: 520px;
-      margin: 10vh auto;
-      background: #fff;
-      border-radius: 12px;
-      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
-    "
-  >
-    <div
-      class="card-header"
-      style="display: flex; justify-content: space-between; align-items: center"
-    >
-      <h3 class="card-title" style="margin: 0">Edit Expense</h3>
-      <button class="btn btn-ghost" onclick="closeEditDialog()">✕</button>
-    </div>
-    <div class="card-body" style="padding: var(--space-4)">
-      <input type="hidden" id="editExpenseId" />
-      <div class="form-group">
-        <label class="form-label" for="editItemName">Item</label>
-        <input class="form-control" id="editItemName" type="text" />
-      </div>
-      <div class="form-group">
-        <label class="form-label" for="editAmount">Amount (₹)</label>
-        <input
-          class="form-control"
-          id="editAmount"
-          type="number"
-          step="0.01"
-          min="0"
-        />
-      </div>
-      <div class="form-group">
-        <label class="form-label" for="editCategory">Category</label>
-        <select class="form-select" id="editCategory">
-          <option value="Food & Dining">Food & Dining</option>
-          <option value="Transportation">Transportation</option>
-          <option value="Shopping">Shopping</option>
-          <option value="Entertainment">Entertainment</option>
-          <option value="Bills & Utilities">Bills & Utilities</option>
-          <option value="Healthcare">Healthcare</option>
-          <option value="Education">Education</option>
-          <option value="Others">Others</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label class="form-label" for="editDate">Date</label>
-        <input class="form-control" id="editDate" type="date" />
-      </div>
-      <div
-        style="
-          display: flex;
-          gap: 12px;
-          justify-content: flex-end;
-          margin-top: var(--space-3);
-        "
-      >
-        <button class="btn btn-outline" onclick="closeEditDialog()">
-          Cancel
-        </button>
-        <button class="btn btn-primary" onclick="saveEditExpense()">
-          Save
-        </button>
-      </div>
-    </div>
-  </div>
-</div>
-
 <!-- Alert Container -->
 <div
   id="alertContainer"
@@ -302,40 +196,27 @@
 <script src="{{ url_for('static', filename='js/app.js') }}"></script>
 <script src="{{ url_for('static', filename='js/charts.js') }}"></script>
 <script src="{{ url_for('static', filename='js/budget.js') }}"></script>
-<script src="{{ url_for('static', filename='js/edit-dialog.js') }}"></script>
 <script src="{{ url_for('static', filename='js/edit.js') }}"></script>
-<script src="{{ url_for('static', filename='js/insights.js') }}"></script>
 
 <script>
-  // Setup AI insights period filters
-  document.querySelectorAll("[data-insight-period]").forEach((btn) => {
+  // Setup chart filters
+  document.querySelectorAll(".filter-btn").forEach((btn) => {
     btn.addEventListener("click", () => {
       document
-        .querySelectorAll("[data-insight-period]")
-        .forEach((b) => b.classList.remove("active"));
-      btn.classList.add("active");
-      const period = btn.dataset.insightPeriod;
-      if (typeof loadInsights === "function") {
-        loadInsights(period);
-      }
-    });
-  });
-
-  // Setup chart filters - using data-period buttons
-  document.querySelectorAll("[data-period]").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      // Remove active from all chart filter buttons
-      document
-        .querySelectorAll("[data-period]")
+        .querySelectorAll(".filter-btn")
         .forEach((b) => b.classList.remove("active"));
       btn.classList.add("active");
       const period = btn.dataset.period;
-      console.log("Chart filter clicked:", period);
       if (typeof updateVisualizations === "function") {
         updateVisualizations(period);
       }
     });
   });
+
+  // Initialize charts
+  if (typeof setupChartFilters === "function") {
+    setupChartFilters();
+  }
 
   // Initialize budget
   if (typeof initBudgetManagement === "function") {

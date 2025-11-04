@@ -1,295 +1,274 @@
-{% extends 'base.html' %} {% block content %}
-<div class="row mb-4">
-  <div class="col-12">
-    <h1 class="h3 text-dark mb-0">Profile</h1>
-    <p class="text-muted mb-0">Manage your account settings</p>
+{% extends 'base.html' %} {% block title %}Profile - SpendSmart{% endblock %} {%
+block content %}
+<!-- Page Header -->
+<div class="page-header">
+  <h1>Profile</h1>
+  <p>Manage your account settings</p>
+</div>
+
+<!-- Profile Grid -->
+<div class="grid grid-2">
+  <!-- User Info Card -->
+  <div class="card">
+    <div class="card-header">
+      <h3 class="card-title">User Info</h3>
+    </div>
+    <div style="text-align: center; padding: var(--space-4)">
+      <div class="profile-avatar">{{ current_user.username[0].upper() }}</div>
+      <h3 style="margin: var(--space-3) 0 var(--space-1) 0">
+        {{ current_user.full_name or current_user.username }}
+      </h3>
+      <p class="text-muted" style="margin-bottom: var(--space-1)">
+        @{{ current_user.username }}
+      </p>
+      <p class="text-muted" style="margin-bottom: var(--space-3)">
+        {{ current_user.email }}
+      </p>
+      <p class="text-muted" style="font-size: 0.875rem">
+        Member since {{ current_user.created_at.strftime('%B %Y') }}
+      </p>
+    </div>
+  </div>
+
+  <!-- Account Statistics -->
+  <div class="card">
+    <div class="card-header">
+      <h3 class="card-title">Account Statistics</h3>
+    </div>
+    <div class="stats-grid" style="padding: var(--space-3)">
+      <div class="stat-card">
+        <span class="stat-label">Total Expenses</span>
+        <div class="stat-value" id="totalExpensesCount">0</div>
+      </div>
+      <div class="stat-card">
+        <span class="stat-label">Total Spent</span>
+        <div class="stat-value" id="totalSpent">₹0</div>
+      </div>
+      <div class="stat-card">
+        <span class="stat-label">Avg. Monthly</span>
+        <div class="stat-value" id="avgMonthly">₹0</div>
+      </div>
+      <div class="stat-card">
+        <span class="stat-label">Top Category</span>
+        <div class="stat-value" id="topCategory" style="font-size: 1rem">-</div>
+      </div>
+    </div>
   </div>
 </div>
 
-{% with messages = get_flashed_messages(with_categories=true) %} {% if messages
-%} {% for category, message in messages %}
+<!-- Account Information -->
+<div class="card">
+  <div class="card-header">
+    <h3 class="card-title">Account Information</h3>
+  </div>
+
+  <form
+    method="POST"
+    action="{{ url_for('main.profile') }}"
+    class="grid grid-2"
+    style="padding: var(--space-3)"
+  >
+    <div class="form-group">
+      <label for="fullname" class="form-label">Full Name</label>
+      <input
+        type="text"
+        class="form-control"
+        id="fullname"
+        name="fullname"
+        value="{{ current_user.full_name or '' }}"
+        placeholder="Enter full name"
+      />
+    </div>
+
+    <div class="form-group">
+      <label for="username" class="form-label">Username</label>
+      <input
+        type="text"
+        class="form-control"
+        id="username"
+        name="username"
+        value="{{ current_user.username }}"
+        readonly
+        disabled
+      />
+      <small class="text-muted">Username cannot be changed</small>
+    </div>
+
+    <div class="form-group" style="grid-column: span 2">
+      <label for="email" class="form-label">Email Address</label>
+      <input
+        type="email"
+        class="form-control"
+        id="email"
+        name="email"
+        value="{{ current_user.email }}"
+        required
+      />
+    </div>
+
+    <div
+      style="
+        grid-column: span 2;
+        height: 1px;
+        background: var(--color-border);
+        margin: var(--space-2) 0;
+      "
+    ></div>
+
+    <div style="grid-column: span 2">
+      <h4
+        style="font-size: 1rem; font-weight: 600; margin-bottom: var(--space-3)"
+      >
+        Change Password
+      </h4>
+    </div>
+
+    <div class="form-group" style="grid-column: span 2">
+      <label for="current_password" class="form-label">Current Password</label>
+      <input
+        type="password"
+        class="form-control"
+        id="current_password"
+        name="current_password"
+        placeholder="Enter current password"
+      />
+      <small class="text-muted"
+        >Leave blank if you don't want to change password</small
+      >
+    </div>
+
+    <div class="form-group">
+      <label for="new_password" class="form-label">New Password</label>
+      <input
+        type="password"
+        class="form-control"
+        id="new_password"
+        name="new_password"
+        placeholder="Enter new password"
+        minlength="8"
+      />
+    </div>
+
+    <div class="form-group">
+      <label for="confirm_new_password" class="form-label"
+        >Confirm New Password</label
+      >
+      <input
+        type="password"
+        class="form-control"
+        id="confirm_new_password"
+        name="confirm_new_password"
+        placeholder="Confirm new password"
+      />
+    </div>
+
+    <div
+      style="
+        grid-column: span 2;
+        display: flex;
+        gap: 1rem;
+        margin-top: var(--space-2);
+      "
+    >
+      <button type="submit" class="btn btn-primary">Save Changes</button>
+      <a href="{{ url_for('main.dashboard') }}" class="btn btn-secondary"
+        >Cancel</a
+      >
+    </div>
+  </form>
+</div>
+
+<!-- Alert Container -->
 <div
-  class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show"
-  role="alert"
->
-  {{ message }}
-  <button
-    type="button"
-    class="btn-close"
-    data-bs-dismiss="alert"
-    aria-label="Close"
-  ></button>
-</div>
-{% endfor %} {% endif %} {% endwith %}
-
-<div class="row">
-  <div class="col-md-4 mb-4">
-    <div class="card modern-card shadow-sm">
-      <div class="card-body text-center">
-        <div class="mb-3">
-          <div
-            class="avatar-circle bg-primary text-white mx-auto d-flex align-items-center justify-content-center"
-            style="
-              width: 100px;
-              height: 100px;
-              border-radius: 50%;
-              font-size: 2.5rem;
-            "
-          >
-            {{ current_user.username[0].upper() }}
-          </div>
-        </div>
-        <h4 class="mb-1">
-          {{ current_user.full_name or current_user.username }}
-        </h4>
-        <p class="text-muted mb-0">@{{ current_user.username }}</p>
-        <p class="text-muted small">{{ current_user.email }}</p>
-        <hr />
-        <p class="text-muted small mb-0">
-          <i class="bi bi-calendar-check me-1"></i>Member since {{
-          current_user.created_at.strftime('%B %Y') }}
-        </p>
-      </div>
-    </div>
-  </div>
-
-  <div class="col-md-8 mb-4">
-    <div class="card modern-card shadow-sm">
-      <div class="card-header bg-white border-0">
-        <h5 class="mb-0">
-          <i class="bi bi-person-gear me-2 text-primary"></i>Account Information
-        </h5>
-      </div>
-      <div class="card-body">
-        <form method="POST" action="{{ url_for('main.profile') }}">
-          <div class="row">
-            <div class="col-md-6 mb-3">
-              <label for="fullname" class="form-label fw-medium"
-                >Full Name</label
-              >
-              <input
-                type="text"
-                class="form-control modern-input"
-                id="fullname"
-                name="fullname"
-                value="{{ current_user.full_name or '' }}"
-                placeholder="Enter full name"
-              />
-            </div>
-            <div class="col-md-6 mb-3">
-              <label for="username" class="form-label fw-medium"
-                >Username</label
-              >
-              <input
-                type="text"
-                class="form-control modern-input"
-                id="username"
-                name="username"
-                value="{{ current_user.username }}"
-                readonly
-                disabled
-              />
-              <small class="text-muted">Username cannot be changed</small>
-            </div>
-          </div>
-
-          <div class="mb-3">
-            <label for="email" class="form-label fw-medium"
-              >Email Address</label
-            >
-            <input
-              type="email"
-              class="form-control modern-input"
-              id="email"
-              name="email"
-              value="{{ current_user.email }}"
-              required
-            />
-          </div>
-
-          <hr class="my-4" />
-
-          <h6 class="mb-3">
-            <i class="bi bi-key me-2 text-warning"></i>Change Password
-          </h6>
-
-          <div class="mb-3">
-            <label for="current_password" class="form-label fw-medium"
-              >Current Password</label
-            >
-            <input
-              type="password"
-              class="form-control modern-input"
-              id="current_password"
-              name="current_password"
-              placeholder="Enter current password"
-            />
-            <small class="text-muted"
-              >Leave blank if you don't want to change password</small
-            >
-          </div>
-
-          <div class="row">
-            <div class="col-md-6 mb-3">
-              <label for="new_password" class="form-label fw-medium"
-                >New Password</label
-              >
-              <input
-                type="password"
-                class="form-control modern-input"
-                id="new_password"
-                name="new_password"
-                placeholder="Enter new password"
-                minlength="8"
-              />
-            </div>
-            <div class="col-md-6 mb-3">
-              <label for="confirm_new_password" class="form-label fw-medium"
-                >Confirm New Password</label
-              >
-              <input
-                type="password"
-                class="form-control modern-input"
-                id="confirm_new_password"
-                name="confirm_new_password"
-                placeholder="Confirm new password"
-              />
-            </div>
-          </div>
-
-          <div class="d-flex justify-content-between align-items-center mt-4">
-            <button type="submit" class="btn btn-primary">
-              <i class="bi bi-check-lg me-2"></i>Save Changes
-            </button>
-            <a
-              href="{{ url_for('main.logout') }}"
-              class="btn btn-outline-danger"
-            >
-              <i class="bi bi-box-arrow-right me-2"></i>Logout
-            </a>
-          </div>
-        </form>
-      </div>
-    </div>
-  </div>
-</div>
-
-<div class="row">
-  <div class="col-md-12">
-    <div class="card modern-card shadow-sm">
-      <div class="card-header bg-white border-0">
-        <h5 class="mb-0">
-          <i class="bi bi-bar-chart me-2 text-primary"></i>Account Statistics
-        </h5>
-      </div>
-      <div class="card-body">
-        <div class="row text-center">
-          <div class="col-md-3 mb-3">
-            <div class="p-3 border rounded">
-              <h3 class="text-primary mb-0" id="totalExpensesCount">0</h3>
-              <small class="text-muted">Total Expenses</small>
-            </div>
-          </div>
-          <div class="col-md-3 mb-3">
-            <div class="p-3 border rounded">
-              <h3 class="text-success mb-0" id="totalSpent">Rs. 0.00</h3>
-              <small class="text-muted">Total Spent</small>
-            </div>
-          </div>
-          <div class="col-md-3 mb-3">
-            <div class="p-3 border rounded">
-              <h3 class="text-warning mb-0" id="avgMonthly">Rs. 0.00</h3>
-              <small class="text-muted">Avg. Monthly</small>
-            </div>
-          </div>
-          <div class="col-md-3 mb-3">
-            <div class="p-3 border rounded">
-              <h3 class="text-info mb-0" id="topCategory">-</h3>
-              <small class="text-muted">Top Category</small>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
+  id="alertContainer"
+  style="position: fixed; top: 80px; right: 20px; z-index: 1000; width: 350px"
+></div>
 {% endblock %} {% block scripts %}
 <script>
+  // Show alerts
+  function showAlert(message, type = 'info') {
+      const alertContainer = document.getElementById('alertContainer');
+      const alertDiv = document.createElement('div');
+      alertDiv.className = `alert alert-${type}`;
+      alertDiv.textContent = message;
+      alertContainer.appendChild(alertDiv);
+
+      setTimeout(() => {
+          alertDiv.style.opacity = '0';
+          setTimeout(() => alertDiv.remove(), 300);
+      }, 3000);
+  }
+
   // Load user statistics
   async function loadUserStats() {
-    try {
-      const response = await fetch("/api/expenses");
-      const result = await response.json();
+      try {
+          const response = await fetch('/api/expenses');
+          const result = await response.json();
 
-      if (result.success) {
-        const expenses = result.data;
+          if (result.success) {
+              const expenses = result.data;
 
-        // Total expenses count
-        document.getElementById("totalExpensesCount").textContent =
-          expenses.length;
+              // Total expenses count
+              document.getElementById('totalExpensesCount').textContent = expenses.length;
 
-        // Total spent
-        const totalSpent = expenses.reduce(
-          (sum, e) => sum + parseFloat(e.amount),
-          0
-        );
-        document.getElementById(
-          "totalSpent"
-        ).textContent = `Rs. ${totalSpent.toFixed(2)}`;
+              // Total spent
+              const totalSpent = expenses.reduce((sum, e) => sum + parseFloat(e.amount), 0);
+              document.getElementById('totalSpent').textContent = `₹${totalSpent.toFixed(2)}`;
 
-        // Average monthly (last 6 months)
-        const sixMonthsAgo = new Date();
-        sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
-        const recentExpenses = expenses.filter(
-          (e) => new Date(e.date) >= sixMonthsAgo
-        );
-        const avgMonthly =
-          recentExpenses.length > 0
-            ? recentExpenses.reduce((sum, e) => sum + parseFloat(e.amount), 0) /
-              6
-            : 0;
-        document.getElementById(
-          "avgMonthly"
-        ).textContent = `Rs. ${avgMonthly.toFixed(2)}`;
+              // Average monthly (last 6 months)
+              const sixMonthsAgo = new Date();
+              sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+              const recentExpenses = expenses.filter(e => new Date(e.date) >= sixMonthsAgo);
+              const avgMonthly = recentExpenses.length > 0
+                  ? recentExpenses.reduce((sum, e) => sum + parseFloat(e.amount), 0) / 6
+                  : 0;
+              document.getElementById('avgMonthly').textContent = `₹${avgMonthly.toFixed(2)}`;
 
-        // Top category
-        const categories = {};
-        expenses.forEach((e) => {
-          categories[e.category] =
-            (categories[e.category] || 0) + parseFloat(e.amount);
-        });
-        const topCat = Object.entries(categories).sort(
-          (a, b) => b[1] - a[1]
-        )[0];
-        document.getElementById("topCategory").textContent = topCat
-          ? topCat[0]
-          : "-";
+              // Top category
+              const categories = {};
+              expenses.forEach(e => {
+                  categories[e.category] = (categories[e.category] || 0) + parseFloat(e.amount);
+              });
+              const topCat = Object.entries(categories).sort((a, b) => b[1] - a[1])[0];
+              document.getElementById('topCategory').textContent = topCat ? topCat[0] : '-';
+          }
+      } catch (error) {
+          console.error('Error loading stats:', error);
       }
-    } catch (error) {
-      console.error("Error loading stats:", error);
-    }
   }
 
   // Form validation
-  document.querySelector("form").addEventListener("submit", function (e) {
-    const currentPass = document.getElementById("current_password").value;
-    const newPass = document.getElementById("new_password").value;
-    const confirmPass = document.getElementById("confirm_new_password").value;
+  const profileForm = document.querySelector('form');
+  if (profileForm) {
+      profileForm.addEventListener('submit', function(e) {
+          const currentPass = document.getElementById('current_password').value;
+          const newPass = document.getElementById('new_password').value;
+          const confirmPass = document.getElementById('confirm_new_password').value;
 
-    if ((newPass || confirmPass) && !currentPass) {
-      e.preventDefault();
-      alert("Please enter your current password to change password");
-      return false;
-    }
+          if ((newPass || confirmPass) && !currentPass) {
+              e.preventDefault();
+              showAlert('Please enter your current password to change password', 'danger');
+              return false;
+          }
 
-    if (newPass !== confirmPass) {
-      e.preventDefault();
-      alert("New passwords do not match!");
-      return false;
-    }
-  });
+          if (newPass !== confirmPass) {
+              e.preventDefault();
+              showAlert('New passwords do not match!', 'danger');
+              return false;
+          }
+      });
+  }
 
   // Load stats on page load
-  document.addEventListener("DOMContentLoaded", loadUserStats);
+  document.addEventListener('DOMContentLoaded', loadUserStats);
+
+  // Show flask messages
+  {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+          {% for category, message in messages %}
+              showAlert('{{ message }}', '{{ category }}');
+          {% endfor %}
+      {% endif %}
+  {% endwith %}
 </script>
 {% endblock %}

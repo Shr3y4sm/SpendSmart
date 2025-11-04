@@ -1,0 +1,348 @@
+{% extends "base.html" %}
+
+{% block title %}SpendSmart - Dashboard{% endblock %}
+
+{% block head %}
+    <!-- Tesseract.js for OCR -->
+    <script src="https://unpkg.com/tesseract.js@4.1.1/dist/tesseract.min.js"></script>
+{% endblock %}
+
+{% block content %}
+    <!-- Professional Page Header -->
+    <div class="page-header">
+        <h1>💰 Expense Dashboard</h1>
+        <p>Track and analyze your spending with AI-powered insights</p>
+    </div>
+
+    <!-- Statistics Cards -->
+    <div class="stats-grid">
+        <div class="stat-card" data-type="primary">
+            <span class="stat-label">Today's Spending</span>
+            <div class="stat-value" id="todayTotal">Rs. 0.00</div>
+        </div>
+        <div class="stat-card" data-type="success">
+            <span class="stat-label">This Week</span>
+            <div class="stat-value" id="weekTotal">Rs. 0.00</div>
+        </div>
+        <div class="stat-card" data-type="warning">
+            <span class="stat-label">This Month</span>
+            <div class="stat-value" id="monthTotal">Rs. 0.00</div>
+        </div>
+        <div class="stat-card" data-type="info">
+            <span class="stat-label">Total Expenses</span>
+            <div class="stat-value" id="totalExpenses">0</div>
+        </div>
+    </div>
+
+    <!-- Add Expense Form -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h3 class="card-title">Add New Expense</h3>
+            <p class="card-subtitle">Enter expense details or scan a receipt</p>
+        </div>
+        
+        <form id="expenseForm" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: var(--space-lg);">
+            <div class="form-group">
+                <label for="itemName" class="form-label">Item Name</label>
+                <input type="text" class="form-control" id="itemName" placeholder="Enter item name" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="amount" class="form-label">Amount</label>
+                <div class="input-group">
+                    <span class="input-group-text">Rs.</span>
+                    <input type="number" class="form-control" id="amount" step="0.01" min="0" placeholder="0.00" required>
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label for="category" class="form-label">Category</label>
+                <div class="d-flex gap-2">
+                    <select class="form-select" id="category" required style="flex: 1;">
+                        <option value="">Choose category...</option>
+                        <option value="Food & Dining">🍔 Food & Dining</option>
+                        <option value="Transportation">🚗 Transportation</option>
+                        <option value="Shopping">🛍️ Shopping</option>
+                        <option value="Entertainment">🎬 Entertainment</option>
+                        <option value="Bills & Utilities">💡 Bills & Utilities</option>
+                        <option value="Healthcare">⚕️ Healthcare</option>
+                        <option value="Education">📚 Education</option>
+                        <option value="Others">📦 Others</option>
+                    </select>
+                    <button class="btn btn-icon" type="button" id="aiCategorizeBtn" title="AI Categorize">
+                        <i class="bi bi-robot" id="aiIcon"></i>
+                        <span class="spinner d-none" id="aiLoading"></span>
+                    </button>
+                </div>
+                <div id="aiSuggestions" class="mt-2" style="display: none;">
+                    <small class="text-muted">AI Suggestions:</small>
+                    <div id="suggestionButtons" class="d-flex flex-wrap gap-1 mt-1"></div>
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label for="date" class="form-label">Date</label>
+                <input type="date" class="form-control" id="date" required>
+            </div>
+            
+            <div class="form-group" style="display: flex; align-items: flex-end;">
+                <button type="submit" class="btn btn-primary" style="width: 100%;">
+                    <i class="bi bi-plus-lg"></i>
+                    Add Expense
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Receipt: Redirect to dedicated page -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h3 class="card-title">Receipt Scanner</h3>
+            <p class="card-subtitle">Upload and process receipts on a dedicated page</p>
+        </div>
+        <div class="card-body" style="text-align:center;">
+            <a class="btn btn-primary" href="{{ url_for('main.receipt_page') }}">
+                <i class="bi bi-upload"></i>
+                Upload Receipt
+            </a>
+        </div>
+    </div>
+
+    <!-- Budget Management -->
+    <div class="row mb-4">
+        <div class="col-6">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">
+                        <i class="bi bi-wallet2"></i> Budget Management
+                    </h3>
+                </div>
+                <form id="budgetForm" style="display: flex; flex-direction: column; gap: var(--space-lg);">
+                    <div class="form-group">
+                        <label for="budgetAmount" class="form-label">Monthly Budget</label>
+                        <div class="input-group">
+                            <span class="input-group-text">Rs.</span>
+                            <input type="number" class="form-control" id="budgetAmount" step="0.01" min="0" placeholder="0.00" required>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="budgetAlertThreshold" class="form-label">Alert Threshold (%)</label>
+                        <input type="number" class="form-control" id="budgetAlertThreshold" min="50" max="100" value="80" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-check-lg"></i>
+                        Set Budget
+                    </button>
+                </form>
+            </div>
+        </div>
+        
+        <!-- Budget Status -->
+        <div class="col-6">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">
+                        <i class="bi bi-graph-up"></i> Budget Status
+                    </h3>
+                </div>
+                <div id="budgetStatus">
+                    <div style="text-align: center; padding: var(--space-2xl); color: var(--color-text-muted);">
+                        <i class="bi bi-wallet2" style="font-size: 3rem;"></i>
+                        <p style="margin-top: var(--space-md);">No budget set</p>
+                        <small>Set a monthly budget to track your spending</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Budget Alerts -->
+    <div id="budgetAlertsSection" style="display: none; margin-bottom: var(--space-xl);">
+        <div class="alert alert-warning">
+            <div id="budgetAlerts"></div>
+        </div>
+    </div>
+
+    <!-- AI Insights Section -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <div class="d-flex justify-content-between align-items-center">
+                <h3 class="card-title">
+                    <i class="bi bi-lightbulb"></i> AI Financial Insights
+                </h3>
+                <div class="d-flex gap-2">
+                    <input type="radio" id="weekPeriod" name="insightPeriod" value="week" checked style="display: none;">
+                    <label for="weekPeriod" class="btn btn-sm btn-outline">Week</label>
+                    
+                    <input type="radio" id="monthPeriod" name="insightPeriod" value="month" style="display: none;">
+                    <label for="monthPeriod" class="btn btn-sm btn-outline">Month</label>
+                    
+                    <input type="radio" id="allPeriod" name="insightPeriod" value="all" style="display: none;">
+                    <label for="allPeriod" class="btn btn-sm btn-outline">All</label>
+                </div>
+            </div>
+        </div>
+        <div id="insightsContent">
+            <div style="text-align: center; padding: var(--space-2xl);">
+                <div class="spinner"></div>
+                <p class="text-muted mt-2">Generating AI insights...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Charts -->
+    <div style="margin-bottom: var(--space-md);">
+        <div class="d-flex justify-content-between align-items-center">
+            <h3>Spending Visualization</h3>
+            <div class="d-flex gap-2">
+                <input type="radio" id="filterWeek" name="chartFilter" value="week" style="display: none;">
+                <label for="filterWeek" class="btn btn-sm btn-outline">Week</label>
+                
+                <input type="radio" id="filterMonth" name="chartFilter" value="month" checked style="display: none;">
+                <label for="filterMonth" class="btn btn-sm btn-outline">Month</label>
+                                
+                <input type="radio" id="filterYear" name="chartFilter" value="year" style="display: none;">
+                <label for="filterYear" class="btn btn-sm btn-outline">Year</label>
+            </div>
+        </div>
+    </div>
+
+    <!-- Charts Grid -->
+    <div class="charts-grid mb-4">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">
+                    <i class="bi bi-pie-chart-fill"></i> Spending Distribution
+                </h3>
+            </div>
+            <canvas id="pieChart"></canvas>
+        </div>
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">
+                    <i class="bi bi-graph-up"></i> Monthly Trends
+                </h3>
+            </div>
+            <canvas id="trendChart"></canvas>
+        </div>
+    </div>
+
+    <!-- Expenses Table -->
+    <div class="card">
+        <div class="card-header">
+            <div class="d-flex justify-content-between align-items-center">
+                <h3 class="card-title">
+                    <i class="bi bi-receipt"></i> Recent Expenses
+                </h3>
+                <div class="d-flex align-items-center gap-2">
+                    <span class="badge badge-primary" id="expenseCount">0 expenses</span>
+                    <button class="btn btn-sm btn-outline" onclick="loadExpenses()">
+                        <i class="bi bi-arrow-clockwise"></i>
+                        Refresh
+                    </button>
+                </div>
+            </div>
+        </div>
+        <div class="table-container">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Item</th>
+                        <th>Category</th>
+                        <th style="text-align: right;">Amount</th>
+                        <th style="text-align: center;">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="expenseTableBody">
+                                    <tr>
+                                        <td colspan="5" class="text-center text-muted py-4">
+                                            <div class="empty-state">
+                                                <i class="bi bi-receipt text-muted"></i>
+                                <p class="text-muted">No expenses yet. Add your first expense above!</p>
+                            </div>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Edit Expense Modal (Minimal Overlay) -->
+    <div class="modal-overlay" id="editExpenseModal" style="display: none;">
+        <div class="modal-content" style="max-width: 600px; margin: 10vh auto; padding: 0;">
+            <div class="card">
+                <div class="card-header">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h3 class="card-title">
+                            <i class="bi bi-pencil"></i> Edit Expense
+                        </h3>
+                        <button type="button" class="btn btn-icon" onclick="closeEditModal()">
+                            <i class="bi bi-x-lg"></i>
+                        </button>
+                    </div>
+                </div>
+                <form id="editExpenseForm" style="display: flex; flex-direction: column; gap: var(--space-lg);">
+                    <input type="hidden" id="editExpenseId">
+                    <div class="form-group">
+                        <label for="editItemName" class="form-label">Item Name</label>
+                        <input type="text" class="form-control" id="editItemName" placeholder="Enter item name" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="editAmount" class="form-label">Amount</label>
+                        <div class="input-group">
+                            <span class="input-group-text">Rs.</span>
+                            <input type="number" class="form-control" id="editAmount" step="0.01" min="0" placeholder="0.00" required>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="editCategory" class="form-label">Category</label>
+                        <div class="d-flex gap-2">
+                            <select class="form-select" id="editCategory" required style="flex: 1;">
+                                <option value="">Choose category...</option>
+                                <option value="Food & Dining">🍔 Food & Dining</option>
+                                <option value="Transportation">🚗 Transportation</option>
+                                <option value="Shopping">🛍️ Shopping</option>
+                                <option value="Entertainment">🎬 Entertainment</option>
+                                <option value="Bills & Utilities">💡 Bills & Utilities</option>
+                                <option value="Healthcare">⚕️ Healthcare</option>
+                                <option value="Education">📚 Education</option>
+                                <option value="Others">📦 Others</option>
+                            </select>
+                            <button class="btn btn-icon" type="button" id="editAiCategorizeBtn" title="AI Categorize">
+                                <i class="bi bi-robot" id="editAiIcon"></i>
+                                <span class="spinner d-none" id="editAiLoading"></span>
+                            </button>
+                        </div>
+                        <div id="editAiSuggestions" class="mt-2" style="display: none;">
+                            <small class="text-muted">AI Suggestions:</small>
+                            <div id="editSuggestionButtons" class="d-flex flex-wrap gap-1 mt-1"></div>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="editDate" class="form-label">Date</label>
+                        <input type="date" class="form-control" id="editDate" required>
+                    </div>
+                    <div class="d-flex gap-2 justify-content-end">
+                        <button type="button" class="btn btn-outline" onclick="closeEditModal()">Cancel</button>
+                        <button type="button" class="btn btn-primary" onclick="saveEditExpense()">
+                            <i class="bi bi-check-lg"></i>
+                            Save Changes
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+    <!-- Custom JS -->
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/insights.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/edit.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/charts.js') }}"></script>
+    <!-- Removed inline scanner; handled on /receipt page -->
+    <script src="{{ url_for('static', filename='js/budget.js') }}"></script>
+{% endblock %}
