@@ -6,20 +6,29 @@ services:
     plan: free
     rootDir: SpendSmart
     buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn --bind 0.0.0.0:$PORT run:app
+    # Reduce memory footprint on free plan: single worker, threaded, request recycling
+    startCommand: gunicorn -w 1 -k gthread --threads 4 --timeout 90 --max-requests 200 --max-requests-jitter 50 --bind 0.0.0.0:$PORT run:app
     envVars:
       - key: FLASK_ENV
         value: production
+      - key: WEB_CONCURRENCY
+        value: "1"
+      - key: PYTHONUNBUFFERED
+        value: "true"
       - key: SECRET_KEY
         generateValue: true
       - key: GEMINI_API_KEY
+        sync: false
+      - key: APP_BASE_URL
         sync: false
       - key: MAIL_SERVER
         value: smtp.gmail.com
       - key: MAIL_PORT
         value: 587
       - key: MAIL_USE_TLS
-        value: true
+        value: "true"
+      - key: MAIL_USE_SSL
+        value: "false"
       - key: MAIL_USERNAME
         sync: false
       - key: MAIL_PASSWORD

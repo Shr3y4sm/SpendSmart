@@ -38,6 +38,9 @@ def send_budget_exceeded_email(user_email, user_name, budget_amount, total_spent
         
         subject = f"⚠️ Budget Alert: You've Exceeded Your {month} Budget"
         
+        # Resolve base URL for links in emails
+        base_url = os.environ.get('APP_BASE_URL') or current_app.config.get('APP_BASE_URL') or 'http://localhost:5000'
+
         # HTML email body
         html_body = f"""
         <!DOCTYPE html>
@@ -182,7 +185,7 @@ def send_budget_exceeded_email(user_email, user_name, budget_amount, total_spent
                 </div>
                 
                 <p style="text-align: center;">
-                    <a href="http://localhost:5000/dashboard" class="cta-button">View Dashboard</a>
+                    <a href="{base_url}/dashboard" class="cta-button">View Dashboard</a>
                 </p>
                 
                 <p style="margin-top: 30px; color: #666;">
@@ -224,7 +227,7 @@ Tips to Get Back on Track:
 • Consider adjusting your budget for next month
 • Use the Insights feature to analyze your spending
 
-Visit your dashboard: http://localhost:5000/dashboard
+Visit your dashboard: {base_url}/dashboard
 
 ---
 SpendSmart - Intelligent Expense Tracker
@@ -267,6 +270,8 @@ def send_budget_warning_email(user_email, user_name, budget_amount, total_spent,
         
         subject = f"⚠️ Budget Warning: {percentage:.0f}% of Your {month} Budget Used"
         
+        base_url = os.environ.get('APP_BASE_URL') or current_app.config.get('APP_BASE_URL') or 'http://localhost:5000'
+
         html_body = f"""
         <!DOCTYPE html>
         <html>
@@ -372,7 +377,7 @@ def send_budget_warning_email(user_email, user_name, budget_amount, total_spent,
                 <p>Consider reviewing your spending to stay within budget for the rest of the month.</p>
                 
                 <p style="text-align: center; margin-top: 30px;">
-                    <a href="http://localhost:5000/dashboard" 
+                    <a href="{base_url}/dashboard" 
                        style="display: inline-block; background: linear-gradient(135deg, #ffc107 0%, #ff9800 100%); 
                               color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; font-weight: 600;">
                         Review Budget
@@ -404,7 +409,7 @@ Budget Summary:
 
 Consider reviewing your spending to stay within budget.
 
-Visit your dashboard: http://localhost:5000/dashboard
+Visit your dashboard: {base_url}/dashboard
 
 ---
 SpendSmart - Intelligent Expense Tracker
