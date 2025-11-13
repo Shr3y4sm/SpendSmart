@@ -15,7 +15,6 @@ Modern, AI-powered expense tracking with smart categorization, enhanced receipt 
 - 📊 Interactive charts (distribution + trends)
 - 🎨 Modern, responsive UI
 
-Live demo: [spendsmart-0sa0.onrender.com](https://spendsmart-0sa0.onrender.com)
 
 ## 🚀 Quick Start
 
